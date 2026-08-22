@@ -27,6 +27,12 @@ describe("parcours de suivi", () => {
     expect(useTrackerStore.getState().trackings.squat?.reference).toBe(100);
 
     const updateDialog = openExercise("Squat");
+    const field = within(updateDialog).getByLabelText(/charge en kg/i);
+
+    // Le zéro de départ ne doit pas rester collé devant la saisie.
+    fireEvent.change(field, { target: { value: "0105" } });
+    expect((field as HTMLInputElement).value).toBe("105");
+
     fireEvent.click(within(updateDialog).getByRole("button", { name: /^\+2,5 kg$/ }));
     fireEvent.click(within(updateDialog).getByRole("button", { name: /enregistrer la performance/i }));
 

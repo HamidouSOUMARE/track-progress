@@ -5,6 +5,7 @@ import { Sheet } from "@/components/Sheet";
 import { DeltaBadge } from "@/components/DeltaBadge";
 import { getMuscleGroup } from "@/data/muscle-groups";
 import { celebrationKind, pickMessage } from "@/lib/encouragement";
+import { parseAmount, sanitizeAmount, toAmountInput } from "@/lib/amount";
 import { formatDate, formatValue, formatWithUnit, unitSuffix } from "@/lib/format";
 import { computeProgress, getIncrements } from "@/lib/progress";
 import { useTrackerStore } from "@/store/tracker-store";
@@ -36,7 +37,10 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
   const removeExercise = useTrackerStore((state) => state.removeExercise);
 
   const progress = useMemo(() => (tracking ? computeProgress(tracking) : null), [tracking]);
-  const [value, setValue] = useState<number>(progress?.current ?? 0);
+  // Le champ garde la saisie brute : voir sanitizeAmount pour le pourquoi.
+  const [amount, setAmount] = useState<string>(
+    progress ? toAmountInput(progress.current) : "",
+  );
   const [reps, setReps] = useState("");
   const [sets, setSets] = useState("");
   const [referenceDraft, setReferenceDraft] = useState<string>("");
@@ -50,7 +54,7 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
     setSyncedId(activeId);
     if (exercise) {
       setShown(exercise);
-      setValue(progress?.current ?? 0);
+      setAmount(progress ? toAmountInput(progress.current) : "");
       setReps("");
       setSets("");
       setEditingReference(false);
@@ -67,9 +71,10 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
   const suffix = unitSuffix(shown.unit);
 
   const step = increments[0] ?? 1;
+  const value = parseAmount(amount);
 
-  const adjust = (amount: number) => {
-    setValue((current) => Math.max(0, round(current + amount)));
+  const adjust = (increment: number) => {
+    setAmount((current) => toAmountInput(Math.max(0, round(parseAmount(current) + increment))));
     vibrate([8]);
   };
 
@@ -106,8 +111,8 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
   };
 
   const handleReferenceSave = () => {
-    const next = Number(referenceDraft);
-    if (Number.isFinite(next) && next > 0) {
+    const next = parseAmount(referenceDraft);
+    if (next > 0) {
       updateReference(shown.id, next);
     }
     setEditingReference(false);
@@ -179,13 +184,13 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
         <label className="flex flex-1 items-baseline justify-center gap-2">
           <span className="sr-only">Charge en {suffix}</span>
           <input
-            type="number"
+            type="text"
             inputMode="decimal"
-            step="any"
-            min={0}
-            value={value}
-            onChange={(event) => setValue(Math.max(0, Number(event.target.value)))}
-            className="tabular w-full min-w-0 bg-transparent text-center text-5xl font-black text-ink outline-none"
+            autoComplete="off"
+            value={amount}
+            onChange={(event) => setAmount(sanitizeAmount(event.target.value))}
+            placeholder="0"
+            className="tabular w-full min-w-0 bg-transparent text-center text-5xl font-black text-ink outline-none placeholder:text-ink-faint"
           />
           <span className="text-lg font-semibold text-ink-muted">{suffix}</span>
         </label>
@@ -268,7 +273,7 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
             <button
               type="button"
               onClick={() => {
-                setReferenceDraft(String(progress.reference));
+                setReferenceDraft(toAmountInput(progress.reference));
                 setEditingReference((open) => !open);
               }}
               className="text-xs font-semibold text-ink-muted underline-offset-4 hover:text-accent hover:underline"
@@ -280,12 +285,11 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
           {editingReference ? (
             <div className="mb-3 flex gap-2">
               <input
-                type="number"
+                type="text"
                 inputMode="decimal"
-                step="any"
-                min={0}
+                autoComplete="off"
                 value={referenceDraft}
-                onChange={(event) => setReferenceDraft(event.target.value)}
+                onChange={(event) => setReferenceDraft(sanitizeAmount(event.target.value))}
                 className="tabular w-full rounded-card border border-line bg-surface-raised px-3 py-2 text-base text-ink outline-none"
               />
               <button
