@@ -5,7 +5,7 @@ import { Sheet } from "@/components/Sheet";
 import { DeltaBadge } from "@/components/DeltaBadge";
 import { getMuscleGroup } from "@/data/muscle-groups";
 import { celebrationKind, pickMessage } from "@/lib/encouragement";
-import { formatDate, formatWithUnit, unitSuffix } from "@/lib/format";
+import { formatDate, formatValue, formatWithUnit, unitSuffix } from "@/lib/format";
 import { computeProgress, getIncrements } from "@/lib/progress";
 import { useTrackerStore } from "@/store/tracker-store";
 import type { CelebrationPayload } from "@/components/Celebration";
@@ -66,8 +66,10 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
   const increments = getIncrements(shown.unit);
   const suffix = unitSuffix(shown.unit);
 
-  const adjust = (step: number) => {
-    setValue((current) => Math.max(0, round(current + step)));
+  const step = increments[0] ?? 1;
+
+  const adjust = (amount: number) => {
+    setValue((current) => Math.max(0, round(current + amount)));
     vibrate([8]);
   };
 
@@ -167,8 +169,8 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
       <div className="flex items-center justify-between gap-3">
         <button
           type="button"
-          onClick={() => adjust(-(increments[0] ?? 1))}
-          aria-label={`Retirer ${increments[0]} ${suffix}`}
+          onClick={() => adjust(-step)}
+          aria-label={`Retirer ${formatValue(step)} ${suffix}`}
           className="size-12 shrink-0 rounded-card border border-line text-2xl font-bold text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
         >
           −
@@ -190,8 +192,8 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
 
         <button
           type="button"
-          onClick={() => adjust(increments[0] ?? 1)}
-          aria-label={`Ajouter ${increments[0]} ${suffix}`}
+          onClick={() => adjust(step)}
+          aria-label={`Ajouter ${formatValue(step)} ${suffix}`}
           className="size-12 shrink-0 rounded-card border border-line text-2xl font-bold text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
         >
           +
@@ -199,14 +201,14 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
       </div>
 
       <div className="mt-4 flex flex-wrap justify-center gap-2">
-        {increments.map((step) => (
+        {increments.map((increment) => (
           <button
-            key={step}
+            key={increment}
             type="button"
-            onClick={() => adjust(step)}
+            onClick={() => adjust(increment)}
             className="rounded-pill border border-line bg-surface-raised px-3.5 py-1.5 text-sm font-semibold text-ink-muted transition-colors hover:border-accent/40 hover:text-accent"
           >
-            +{step} {suffix}
+            +{formatValue(increment)} {suffix}
           </button>
         ))}
       </div>
