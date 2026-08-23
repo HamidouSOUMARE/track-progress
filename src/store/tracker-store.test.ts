@@ -6,7 +6,13 @@ const store = () => useTrackerStore.getState();
 
 beforeEach(() => {
   localStorage.clear();
-  useTrackerStore.setState({ exercises: buildDefaultExercises(), trackings: {} });
+  useTrackerStore.setState({
+    exercises: buildDefaultExercises(),
+    trackings: {},
+    programs: [],
+    activeProgramId: null,
+    lastDeletion: null,
+  });
 });
 
 describe("addExercise", () => {
@@ -188,6 +194,120 @@ describe("undoDelete", () => {
   });
 });
 
+describe("programmes", () => {
+  it("active le premier programme créé", () => {
+    const program = store().createProgram("Push Pull Legs");
+
+    expect(store().programs).toHaveLength(1);
+    expect(store().activeProgramId).toBe(program.id);
+  });
+
+  it("garde le programme suivi quand on en crée un second", () => {
+    const first = store().createProgram("PPL");
+    store().createProgram("Full body");
+
+    expect(store().activeProgramId).toBe(first.id);
+  });
+
+  it("place et retire un exercice sur un jour", () => {
+    const program = store().createProgram("PPL");
+
+    store().toggleExerciseInDay(program.id, "lundi", "squat");
+    expect(store().programs[0]?.days.lundi).toEqual(["squat"]);
+
+    store().toggleExerciseInDay(program.id, "lundi", "squat");
+    expect(store().programs[0]?.days.lundi).toEqual([]);
+  });
+
+  it("réordonne les exercices d'une séance", () => {
+    const program = store().createProgram("PPL");
+    store().toggleExerciseInDay(program.id, "lundi", "squat");
+    store().toggleExerciseInDay(program.id, "lundi", "presse-a-cuisses");
+    store().toggleExerciseInDay(program.id, "lundi", "leg-curl");
+
+    store().moveExerciseInDay(program.id, "lundi", "leg-curl", -1);
+
+    expect(store().programs[0]?.days.lundi).toEqual(["squat", "leg-curl", "presse-a-cuisses"]);
+  });
+
+  it("ignore un déplacement hors des bornes", () => {
+    const program = store().createProgram("PPL");
+    store().toggleExerciseInDay(program.id, "lundi", "squat");
+
+    store().moveExerciseInDay(program.id, "lundi", "squat", -1);
+
+    expect(store().programs[0]?.days.lundi).toEqual(["squat"]);
+  });
+
+  it("bascule sur un autre programme quand le programme suivi est supprimé", () => {
+    const first = store().createProgram("PPL");
+    const second = store().createProgram("Full body");
+
+    store().deleteProgram(first.id);
+
+    expect(store().activeProgramId).toBe(second.id);
+  });
+
+  it("restaure un programme supprimé, son rang et son statut", () => {
+    const first = store().createProgram("PPL");
+    store().createProgram("Full body");
+    store().toggleExerciseInDay(first.id, "mardi", "squat");
+
+    store().deleteProgram(first.id);
+    store().undoDelete();
+
+    expect(store().programs[0]?.name).toBe("PPL");
+    expect(store().programs[0]?.days.mardi).toEqual(["squat"]);
+    expect(store().activeProgramId).toBe(first.id);
+  });
+});
+
+describe("masquer un suivi", () => {
+  it("masque sans toucher à l'historique", () => {
+    store().startTracking("squat", 100);
+    store().setArchived("squat", true);
+
+    expect(store().exercises.find((exercise) => exercise.id === "squat")?.archived).toBe(true);
+    expect(store().trackings.squat?.reference).toBe(100);
+  });
+
+  it("s'annule comme une suppression", () => {
+    store().setArchived("squat", true);
+    store().undoDelete();
+
+    expect(store().exercises.find((exercise) => exercise.id === "squat")?.archived).toBe(false);
+  });
+});
+
+describe("suppression et programmes", () => {
+  it("retire l'exercice supprimé des séances qui l'utilisaient", () => {
+    const program = store().createProgram("PPL");
+    store().toggleExerciseInDay(program.id, "lundi", "squat");
+    store().toggleExerciseInDay(program.id, "jeudi", "squat");
+
+    store().removeExercise("squat");
+
+    expect(store().programs[0]?.days.lundi).toEqual([]);
+    expect(store().programs[0]?.days.jeudi).toEqual([]);
+  });
+
+  it("le remet à sa place dans chaque séance à l'annulation", () => {
+    const program = store().createProgram("PPL");
+    store().toggleExerciseInDay(program.id, "lundi", "presse-a-cuisses");
+    store().toggleExerciseInDay(program.id, "lundi", "squat");
+    store().toggleExerciseInDay(program.id, "lundi", "leg-curl");
+
+    store().removeExercise("squat");
+    store().undoDelete();
+
+    expect(store().programs[0]?.days.lundi).toEqual([
+      "presse-a-cuisses",
+      "squat",
+      "leg-curl",
+    ]);
+  });
+});
+
 describe("migrateSnapshot", () => {
   const v1 = {
     exercises: [{ id: "squat", name: "Squat", group: "jambes", unit: "kg", custom: false }],
@@ -217,7 +337,7 @@ describe("migrateSnapshot", () => {
   });
 
   it("laisse passer une sauvegarde déjà à jour", () => {
-    const current = { exercises: [], trackings: {} };
+    const current = { exercises: [], trackings: {}, programs: [], activeProgramId: null };
 
     expect(migrateSnapshot(current, 2)).toEqual(current);
   });
