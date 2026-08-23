@@ -10,7 +10,7 @@ import { formatDate, formatValue, formatWithUnit, unitSuffix } from "@/lib/forma
 import { computeProgress, getIncrements } from "@/lib/progress";
 import { useTrackerStore } from "@/store/tracker-store";
 import type { CelebrationPayload } from "@/components/Celebration";
-import type { Exercise, Tracking } from "@/lib/types";
+import type { Exercise, Goal, Tracking } from "@/lib/types";
 
 interface UpdateSheetProps {
   exercise: Exercise | null;
@@ -18,6 +18,16 @@ interface UpdateSheetProps {
   onClose: () => void;
   onCelebrate: (payload: CelebrationPayload) => void;
 }
+
+interface Opened {
+  exercise: Exercise;
+  tracking: Tracking | undefined;
+}
+
+const GOALS: { id: Goal; label: string }[] = [
+  { id: "up", label: "↑ Augmenter" },
+  { id: "down", label: "↓ Réduire" },
+];
 
 function round(value: number): number {
   return Math.round(value * 100) / 100;
@@ -36,24 +46,38 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
   const removeEntry = useTrackerStore((state) => state.removeEntry);
   const removeExercise = useTrackerStore((state) => state.removeExercise);
 
-  const progress = useMemo(() => (tracking ? computeProgress(tracking) : null), [tracking]);
-  // Le champ garde la saisie brute : voir sanitizeAmount pour le pourquoi.
-  const [amount, setAmount] = useState<string>(
-    progress ? toAmountInput(progress.current) : "",
+  const setGoal = useTrackerStore((state) => state.setGoal);
+
+  // La feuille reste affichée le temps de se refermer : on garde sous la main
+  // le dernier suivi ouvert plutôt que de la vider d'un coup.
+  const [lastOpened, setLastOpened] = useState<Opened | null>(
+    exercise ? { exercise, tracking } : null,
   );
+
+  if (exercise && (lastOpened?.exercise !== exercise || lastOpened?.tracking !== tracking)) {
+    setLastOpened({ exercise, tracking });
+  }
+
+  const active = exercise ?? lastOpened?.exercise ?? null;
+  const activeTracking = exercise ? tracking : lastOpened?.tracking;
+  const goal = active?.goal ?? "up";
+
+  const progress = useMemo(
+    () => (activeTracking ? computeProgress(activeTracking, goal) : null),
+    [activeTracking, goal],
+  );
+  // Le champ garde la saisie brute : voir sanitizeAmount pour le pourquoi.
+  const [amount, setAmount] = useState<string>(progress ? toAmountInput(progress.current) : "");
   const [reps, setReps] = useState("");
   const [sets, setSets] = useState("");
   const [referenceDraft, setReferenceDraft] = useState<string>("");
   const [editingReference, setEditingReference] = useState(false);
-  // On garde le dernier exercice affiché le temps de l'animation de fermeture.
-  const [shown, setShown] = useState<Exercise | null>(exercise);
   const [syncedId, setSyncedId] = useState<string | null>(exercise?.id ?? null);
 
   const activeId = exercise?.id ?? null;
   if (activeId !== syncedId) {
     setSyncedId(activeId);
     if (exercise) {
-      setShown(exercise);
       setAmount(progress ? toAmountInput(progress.current) : "");
       setReps("");
       setSets("");
@@ -61,14 +85,15 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
     }
   }
 
-  if (!shown) {
+  if (!active) {
     return null;
   }
 
-  const group = getMuscleGroup(shown.group);
+  const group = getMuscleGroup(active.group);
   const accent = `var(${group.accent})`;
-  const increments = getIncrements(shown.unit);
-  const suffix = unitSuffix(shown.unit);
+  const isMeasure = active.kind === "mesure";
+  const increments = getIncrements(active.unit, active.kind);
+  const suffix = unitSuffix(active.unit);
 
   const step = increments[0] ?? 1;
   const value = parseAmount(amount);
@@ -82,12 +107,12 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
     if (value <= 0) {
       return;
     }
-    startTracking(shown.id, value);
+    startTracking(active.id, value);
     onClose();
   };
 
   const handleSave = () => {
-    const result = logValue(shown.id, {
+    const result = logValue(active.id, {
       value,
       reps: reps ? Number(reps) : null,
       sets: sets ? Number(sets) : null,
@@ -97,15 +122,15 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
       return;
     }
 
-    const kind = celebrationKind(result.delta, result.record);
+    const kind = celebrationKind(result.gain, result.record);
     vibrate(result.record ? [14, 40, 22] : [10]);
     onCelebrate({
       key: Date.now(),
       kind,
-      message: pickMessage(kind),
+      message: pickMessage(kind, active.goal),
       delta: result.delta,
-      unit: shown.unit,
-      exerciseName: shown.name,
+      unit: active.unit,
+      exerciseName: active.name,
     });
     onClose();
   };
@@ -113,15 +138,15 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
   const handleReferenceSave = () => {
     const next = parseAmount(referenceDraft);
     if (next > 0) {
-      updateReference(shown.id, next);
+      updateReference(active.id, next);
     }
     setEditingReference(false);
   };
 
-  const history = tracking ? [...tracking.entries].reverse() : [];
+  const history = activeTracking ? [...activeTracking.entries].reverse() : [];
 
   return (
-    <Sheet open={exercise !== null} title={shown.name} onClose={onClose}>
+    <Sheet open={exercise !== null} title={active.name} onClose={onClose}>
       <header className="mb-5 flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
           <span className="flex items-center gap-2 text-xs font-medium tracking-wide text-ink-faint uppercase">
@@ -132,7 +157,7 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
             />
             {group.label}
           </span>
-          <h2 className="text-xl font-bold text-ink">{shown.name}</h2>
+          <h2 className="text-xl font-bold text-ink">{active.name}</h2>
         </div>
         <button
           type="button"
@@ -148,26 +173,27 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
           <div>
             <dt className="text-xs text-ink-faint">Référence</dt>
             <dd className="tabular text-sm font-bold text-ink">
-              {formatWithUnit(progress.reference, shown.unit)}
+              {formatWithUnit(progress.reference, active.unit)}
             </dd>
           </div>
           <div>
             <dt className="text-xs text-ink-faint">Actuel</dt>
             <dd className="tabular text-sm font-bold text-ink">
-              {formatWithUnit(progress.current, shown.unit)}
+              {formatWithUnit(progress.current, active.unit)}
             </dd>
           </div>
           <div>
-            <dt className="text-xs text-ink-faint">Record</dt>
+            <dt className="text-xs text-ink-faint">{isMeasure ? "Meilleur" : "Record"}</dt>
             <dd className="tabular text-sm font-bold text-accent">
-              {formatWithUnit(progress.best, shown.unit)}
+              {formatWithUnit(progress.best, active.unit)}
             </dd>
           </div>
         </dl>
       ) : (
         <p className="mb-5 rounded-card border border-line bg-surface-raised p-3 text-sm text-ink-muted">
-          Indique la charge que tu utilises aujourd&apos;hui : elle deviendra ta référence de
-          départ.
+          {isMeasure
+            ? "Prends ta mesure du jour : elle deviendra ton point de départ."
+            : "Indique la charge que tu utilises aujourd'hui : elle deviendra ta référence de départ."}
         </p>
       )}
 
@@ -182,7 +208,9 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
         </button>
 
         <label className="flex flex-1 items-baseline justify-center gap-2">
-          <span className="sr-only">Charge en {suffix}</span>
+          <span className="sr-only">
+            {isMeasure ? "Mesure" : "Charge"} en {suffix}
+          </span>
           <input
             type="text"
             inputMode="decimal"
@@ -222,13 +250,19 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
         <div className="mt-4 flex justify-center">
           <DeltaBadge
             delta={round(value - progress.reference)}
-            ratio={progress.reference > 0 ? (value - progress.reference) / progress.reference : 0}
-            unit={shown.unit}
+            gain={round(active.goal === "up" ? value - progress.reference : progress.reference - value)}
+            ratio={
+              progress.reference > 0
+                ? (active.goal === "up" ? value - progress.reference : progress.reference - value) /
+                  progress.reference
+                : 0
+            }
+            unit={active.unit}
           />
         </div>
       ) : null}
 
-      {progress ? (
+      {progress && !isMeasure ? (
         <div className="mt-5 grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-muted">
             Répétitions
@@ -257,13 +291,43 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
         </div>
       ) : null}
 
+      {isMeasure ? (
+        <fieldset className="mt-5 flex items-center justify-between gap-3 rounded-card border border-line bg-surface-raised px-3 py-2.5">
+          <legend className="sr-only">Sens de l&apos;objectif</legend>
+          <span className="text-xs font-medium text-ink-muted">Je veux que ça</span>
+          <div className="flex gap-1.5">
+            {GOALS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                aria-pressed={active.goal === option.id}
+                onClick={() => setGoal(active.id, option.id)}
+                className={`rounded-pill border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  active.goal === option.id
+                    ? "border-accent/50 bg-accent-soft text-accent"
+                    : "border-line text-ink-muted hover:text-ink"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
+
       <button
         type="button"
         onClick={progress ? handleSave : handleStart}
         disabled={value <= 0}
         className="mt-5 w-full rounded-card bg-accent px-4 py-3.5 text-base font-bold text-accent-ink transition-transform hover:bg-accent-strong active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {progress ? "Enregistrer la performance" : "Définir ma référence"}
+        {progress
+          ? isMeasure
+            ? "Enregistrer la mesure"
+            : "Enregistrer la performance"
+          : isMeasure
+            ? "Définir ma mesure de départ"
+            : "Définir ma référence"}
       </button>
 
       {progress ? (
@@ -312,7 +376,7 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
                 <li key={entry.id} className="flex items-center justify-between gap-3 py-2.5">
                   <div className="flex flex-col">
                     <span className="tabular text-sm font-semibold text-ink">
-                      {formatWithUnit(entry.value, shown.unit)}
+                      {formatWithUnit(entry.value, active.unit)}
                       {entry.reps ? (
                         <span className="ml-2 text-xs font-normal text-ink-faint">
                           {entry.sets ? `${entry.sets} × ` : ""}
@@ -324,7 +388,7 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
                   </div>
                   <button
                     type="button"
-                    onClick={() => removeEntry(shown.id, entry.id)}
+                    onClick={() => removeEntry(active.id, entry.id)}
                     aria-label={`Supprimer la performance du ${formatDate(entry.date)}`}
                     className="rounded-pill px-2 py-1 text-xs text-ink-faint transition-colors hover:bg-surface-hover hover:text-negative"
                   >
@@ -337,11 +401,11 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
         </section>
       ) : null}
 
-      {shown.custom ? (
+      {active.custom ? (
         <button
           type="button"
           onClick={() => {
-            removeExercise(shown.id);
+            removeExercise(active.id);
             onClose();
           }}
           className="mt-6 w-full rounded-card border border-line py-2.5 text-sm font-semibold text-ink-faint transition-colors hover:border-negative/40 hover:text-negative"

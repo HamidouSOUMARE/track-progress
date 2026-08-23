@@ -18,8 +18,8 @@ interface ExerciseCardProps {
 export function ExerciseCard({ exercise, tracking, onOpen }: ExerciseCardProps) {
   const group = getMuscleGroup(exercise.group);
   const accent = `var(${group.accent})`;
-  const progress = tracking ? computeProgress(tracking) : null;
-  const atBest = progress !== null && progress.current >= progress.best && progress.delta > 0;
+  const progress = tracking ? computeProgress(tracking, exercise.goal) : null;
+  const atBest = progress !== null && progress.current === progress.best && progress.gain > 0;
 
   return (
     <motion.button
@@ -32,7 +32,9 @@ export function ExerciseCard({ exercise, tracking, onOpen }: ExerciseCardProps) 
       whileTap={{ scale: 0.985 }}
       transition={{ type: "spring", stiffness: 400, damping: 32 }}
       className="group relative flex w-full flex-col gap-4 overflow-hidden rounded-card border border-line bg-surface p-5 text-left shadow-card transition-colors hover:border-ink-faint/40 hover:bg-surface-raised"
-      aria-label={`${exercise.name} — ${progress ? formatWithUnit(progress.current, exercise.unit) : "aucune référence"}`}
+      aria-label={`${exercise.name} — ${
+        progress ? formatWithUnit(progress.current, exercise.unit) : "aucune référence"
+      }`}
     >
       <span
         aria-hidden="true"
@@ -56,9 +58,9 @@ export function ExerciseCard({ exercise, tracking, onOpen }: ExerciseCardProps) 
         {atBest ? (
           <span
             className="rounded-pill bg-accent-soft px-2 py-1 text-[0.65rem] font-bold text-accent uppercase"
-            title="Meilleure performance enregistrée"
+            title="Meilleur résultat enregistré"
           >
-            Record
+            {exercise.kind === "mesure" ? "Meilleur" : "Record"}
           </span>
         ) : null}
       </header>
@@ -75,7 +77,12 @@ export function ExerciseCard({ exercise, tracking, onOpen }: ExerciseCardProps) 
                 {unitSuffix(exercise.unit)}
               </span>
             </p>
-            <DeltaBadge delta={progress.delta} ratio={progress.ratio} unit={exercise.unit} />
+            <DeltaBadge
+              delta={progress.delta}
+              gain={progress.gain}
+              ratio={progress.ratio}
+              unit={exercise.unit}
+            />
           </div>
 
           <Sparkline values={toSeries(tracking)} color={accent} className="h-9 w-full" />
@@ -92,7 +99,9 @@ export function ExerciseCard({ exercise, tracking, onOpen }: ExerciseCardProps) 
       ) : (
         <div className="flex flex-col gap-3">
           <p className="text-sm text-ink-muted">
-            Enregistre ta charge de référence pour commencer à suivre ta progression.
+            {exercise.kind === "mesure"
+              ? "Prends une première mesure : elle servira de point de départ."
+              : "Enregistre ta charge de référence pour commencer à suivre ta progression."}
           </p>
           <span className="inline-flex w-fit items-center gap-1.5 rounded-pill bg-accent-soft px-3 py-1.5 text-xs font-semibold text-accent">
             Définir la référence

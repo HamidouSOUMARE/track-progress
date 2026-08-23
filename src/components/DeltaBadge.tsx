@@ -2,7 +2,10 @@ import { formatDelta, formatRatio } from "@/lib/format";
 import type { Unit } from "@/lib/types";
 
 interface DeltaBadgeProps {
+  /** Écart brut : donne le sens de la flèche. */
   delta: number;
+  /** Écart lu dans le sens de l'objectif : donne la couleur. */
+  gain: number;
   ratio: number;
   unit: Unit;
   showRatio?: boolean;
@@ -14,8 +17,8 @@ const TONES = {
   flat: "bg-surface-hover text-ink-muted",
 } as const;
 
-export function DeltaBadge({ delta, ratio, unit, showRatio = true }: DeltaBadgeProps) {
-  const tone = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
+export function DeltaBadge({ delta, gain, ratio, unit, showRatio = true }: DeltaBadgeProps) {
+  const tone = gain > 0 ? "up" : gain < 0 ? "down" : "flat";
   const arrow = delta > 0 ? "▲" : delta < 0 ? "▼" : "•";
 
   return (

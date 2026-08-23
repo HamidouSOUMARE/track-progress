@@ -39,4 +39,22 @@ describe("parcours de suivi", () => {
     expect(useTrackerStore.getState().trackings.squat?.entries).toHaveLength(1);
     expect(screen.getByRole("status").textContent).toMatch(/record personnel/i);
   });
+
+  it("lit une mensuration à la baisse comme une progression", () => {
+    render(<Dashboard />);
+
+    const dialog = openExercise("Tour de taille");
+    fireEvent.change(within(dialog).getByLabelText(/mesure en cm/i), { target: { value: "85" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: /définir ma mesure de départ/i }));
+
+    const updateDialog = openExercise("Tour de taille");
+    fireEvent.change(within(updateDialog).getByLabelText(/mesure en cm/i), {
+      target: { value: "83" },
+    });
+    fireEvent.click(within(updateDialog).getByRole("button", { name: /enregistrer la mesure/i }));
+
+    const tracking = useTrackerStore.getState().trackings["tour-de-taille"];
+    expect(tracking?.entries[0]?.value).toBe(83);
+    expect(screen.getByRole("status").textContent).toMatch(/meilleur|plus bas|record/i);
+  });
 });
