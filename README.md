@@ -14,12 +14,15 @@ l'app le fait savoir.
 
 - **Charge de référence + charge actuelle** avec écart en kg et en pourcentage.
 - **Regroupement par partie du corps** : pectoraux, dos, jambes, épaules, bras, abdos.
+- **Mensurations** dans le même écran : tour de taille, tour de bras, poids de corps…
+  chaque mesure porte le sens de son objectif (↑ gagner du bras, ↓ perdre du tour de
+  taille), qui pilote la couleur, la détection de record et le message d'encouragement.
 - **Mise à jour en deux gestes** : incréments rapides (+1,25 / +2,5 / +5 kg), répétitions
   et séries optionnelles.
 - **Animation de célébration** quand une charge progresse, avec badge « record personnel ».
 - **Historique et sparkline** par exercice, suppression d'une entrée erronée.
-- **Exercices personnalisés** mesurés en kilos, en répétitions ou en secondes.
-- **Statistiques globales** : kilos gagnés, exercices en progression, jours actifs sur 30 jours.
+- **Suivis personnalisés** mesurés en kilos, répétitions, secondes ou centimètres.
+- **Statistiques globales** : kilos gagnés, suivis en progression, records battus.
 - **Export / import JSON** pour changer de téléphone sans rien perdre.
 
 Les données restent dans le navigateur (`localStorage`) : pas de compte, pas de serveur,
