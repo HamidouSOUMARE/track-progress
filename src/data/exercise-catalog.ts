@@ -1,6 +1,8 @@
 import type { Exercise } from "@/lib/types";
 
-type CatalogEntry = Omit<Exercise, "custom">;
+type CatalogEntry = Omit<Exercise, "custom" | "kind" | "goal">;
+
+type MeasurementEntry = Omit<Exercise, "custom" | "kind" | "group">;
 
 /**
  * Catalogue par défaut proposé au premier lancement.
@@ -37,6 +39,32 @@ export const EXERCISE_CATALOG: readonly CatalogEntry[] = [
   { id: "gainage", name: "Gainage", group: "abdos", unit: "sec" },
 ] as const;
 
+/**
+ * Mesures prises sur le corps. Chacune porte le sens de son objectif : on gagne
+ * des centimètres de bras, on en perd sur le tour de taille. L'utilisateur peut
+ * inverser ce sens à tout moment depuis la fiche.
+ */
+export const MEASUREMENT_CATALOG: readonly MeasurementEntry[] = [
+  { id: "poids-de-corps", name: "Poids de corps", unit: "kg", goal: "down" },
+  { id: "tour-de-taille", name: "Tour de taille", unit: "cm", goal: "down" },
+  { id: "tour-de-bras", name: "Tour de bras", unit: "cm", goal: "up" },
+  { id: "tour-de-poitrine", name: "Tour de poitrine", unit: "cm", goal: "up" },
+  { id: "tour-de-cuisse", name: "Tour de cuisse", unit: "cm", goal: "up" },
+] as const;
+
 export function buildDefaultExercises(): Exercise[] {
-  return EXERCISE_CATALOG.map((entry) => ({ ...entry, custom: false }));
+  return [
+    ...EXERCISE_CATALOG.map<Exercise>((entry) => ({
+      ...entry,
+      kind: "charge",
+      goal: "up",
+      custom: false,
+    })),
+    ...MEASUREMENT_CATALOG.map<Exercise>((entry) => ({
+      ...entry,
+      group: "mensurations",
+      kind: "mesure",
+      custom: false,
+    })),
+  ];
 }

@@ -4,6 +4,7 @@ const UNIT_SUFFIX: Record<Unit, string> = {
   kg: "kg",
   rep: "reps",
   sec: "s",
+  cm: "cm",
 };
 
 const numberFormatter = new Intl.NumberFormat("fr-FR", {

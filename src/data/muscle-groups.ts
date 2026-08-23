@@ -22,6 +22,12 @@ export const MUSCLE_GROUPS: readonly MuscleGroup[] = [
   },
   { id: "bras", label: "Bras", shortLabel: "Bras", accent: "--color-group-bras" },
   { id: "abdos", label: "Abdos", shortLabel: "Abdos", accent: "--color-group-abdos" },
+  {
+    id: "mensurations",
+    label: "Mensurations",
+    shortLabel: "Mesures",
+    accent: "--color-group-mensurations",
+  },
 ] as const;
 
 const GROUPS_BY_ID = new Map(MUSCLE_GROUPS.map((group) => [group.id, group]));

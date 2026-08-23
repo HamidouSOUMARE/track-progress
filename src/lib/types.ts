@@ -4,10 +4,20 @@ export type MuscleGroupId =
   | "jambes"
   | "epaules"
   | "bras"
-  | "abdos";
+  | "abdos"
+  | "mensurations";
 
-/** Unité de mesure de la performance : charge, répétitions ou temps. */
-export type Unit = "kg" | "rep" | "sec";
+/** Unité mesurée : charge, répétitions, temps ou centimètres. */
+export type Unit = "kg" | "rep" | "sec" | "cm";
+
+/** Une charge soulevée, ou une mesure prise sur le corps. */
+export type TrackKind = "charge" | "mesure";
+
+/**
+ * Sens dans lequel va le progrès. Une charge monte toujours, une mensuration
+ * dépend de l'objectif : un tour de bras qu'on gagne, un tour de taille qu'on perd.
+ */
+export type Goal = "up" | "down";
 
 export interface MuscleGroup {
   id: MuscleGroupId;
@@ -23,13 +33,15 @@ export interface Exercise {
   name: string;
   group: MuscleGroupId;
   unit: Unit;
-  /** Exercice ajouté par l'utilisateur, donc supprimable. */
+  kind: TrackKind;
+  goal: Goal;
+  /** Ajouté par l'utilisateur, donc supprimable. */
   custom: boolean;
 }
 
 export interface LogEntry {
   id: string;
-  /** Charge (kg), répétitions ou secondes selon l'unité de l'exercice. */
+  /** Charge, répétitions, secondes ou centimètres selon l'unité. */
   value: number;
   reps: number | null;
   sets: number | null;
@@ -47,10 +59,13 @@ export interface Tracking {
 export interface Progress {
   reference: number;
   current: number;
+  /** Meilleure valeur atteinte, dans le sens de l'objectif. */
   best: number;
-  /** Écart absolu entre la charge actuelle et la référence. */
+  /** Écart brut entre la valeur actuelle et la référence, signe compris. */
   delta: number;
-  /** Écart relatif (0.15 = +15 %). */
+  /** Écart lu dans le sens de l'objectif : positif = ça progresse. */
+  gain: number;
+  /** Écart relatif dans le sens de l'objectif (0.15 = +15 %). */
   ratio: number;
   entryCount: number;
   lastUpdate: string | null;
