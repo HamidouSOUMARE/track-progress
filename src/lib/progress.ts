@@ -1,41 +1,62 @@
-import type { Exercise, LogEntry, Progress, Tracking, Unit } from "@/lib/types";
+import type { Exercise, Goal, LogEntry, Progress, TrackKind, Tracking, Unit } from "@/lib/types";
 
-/** Incréments proposés en un tap dans la fiche de mise à jour. */
-const INCREMENTS: Record<Unit, readonly number[]> = {
-  kg: [1.25, 2.5, 5],
-  rep: [1, 2, 5],
-  sec: [5, 10, 15],
+/**
+ * Incréments proposés en un tap. Un tour de taille ne se déplace pas par
+ * paliers de 2,5 comme une barre : ils dépendent donc aussi de ce qu'on suit.
+ */
+const INCREMENTS: Record<TrackKind, Partial<Record<Unit, readonly number[]>>> = {
+  charge: {
+    kg: [1.25, 2.5, 5],
+    rep: [1, 2, 5],
+    sec: [5, 10, 15],
+  },
+  mesure: {
+    kg: [0.2, 0.5, 1],
+    cm: [0.5, 1, 2],
+  },
 };
 
-export function getIncrements(unit: Unit): readonly number[] {
-  return INCREMENTS[unit];
+const FALLBACK_INCREMENTS: readonly number[] = [1, 2, 5];
+
+export function getIncrements(unit: Unit, kind: TrackKind = "charge"): readonly number[] {
+  return INCREMENTS[kind][unit] ?? FALLBACK_INCREMENTS;
 }
 
 function lastEntry(tracking: Tracking): LogEntry | null {
   return tracking.entries.at(-1) ?? null;
 }
 
-export function computeProgress(tracking: Tracking): Progress {
-  const values = tracking.entries.map((entry) => entry.value);
+/** Retient la valeur la plus avancée dans le sens de l'objectif. */
+function keepBest(a: number, b: number, goal: Goal): number {
+  return goal === "up" ? Math.max(a, b) : Math.min(a, b);
+}
+
+export function computeProgress(tracking: Tracking, goal: Goal = "up"): Progress {
   const latest = lastEntry(tracking);
   const current = latest?.value ?? tracking.reference;
-  const best = values.length > 0 ? Math.max(...values, tracking.reference) : tracking.reference;
+  const best = tracking.entries.reduce(
+    (acc, entry) => keepBest(acc, entry.value, goal),
+    tracking.reference,
+  );
   const delta = current - tracking.reference;
+  const gain = goal === "up" ? delta : -delta;
 
   return {
     reference: tracking.reference,
     current,
     best,
     delta,
-    ratio: tracking.reference > 0 ? delta / tracking.reference : 0,
+    gain,
+    ratio: tracking.reference > 0 ? gain / tracking.reference : 0,
     entryCount: tracking.entries.length,
     lastUpdate: latest?.date ?? null,
   };
 }
 
-/** Une valeur est un record si elle dépasse strictement tout ce qui a été enregistré. */
-export function isRecord(tracking: Tracking, value: number): boolean {
-  return value > computeProgress(tracking).best;
+/** Une valeur fait record si elle dépasse strictement tout l'historique, dans le bon sens. */
+export function isRecord(tracking: Tracking, value: number, goal: Goal = "up"): boolean {
+  const { best } = computeProgress(tracking, goal);
+  return goal === "up" ? value > best : value < best;
 }
 
 /**
@@ -50,53 +71,60 @@ export function toSeries(tracking: Tracking): number[] {
 export interface Summary {
   trackedCount: number;
   improvedCount: number;
-  /** Somme des kilos gagnés, tous exercices en charge confondus. */
+  /** Somme des kilos gagnés sur les charges, mensurations exclues. */
   kilosGained: number;
+  /** Nombre de records personnels battus depuis le début. */
+  records: number;
   bestRatio: number;
   bestRatioExerciseId: string | null;
 }
 
-export function summarize(exercises: Exercise[], trackings: Tracking[]): Summary {
-  const unitById = new Map(exercises.map((exercise) => [exercise.id, exercise.unit]));
+const EMPTY_SUMMARY: Summary = {
+  trackedCount: 0,
+  improvedCount: 0,
+  kilosGained: 0,
+  records: 0,
+  bestRatio: 0,
+  bestRatioExerciseId: null,
+};
 
-  return trackings.reduce<Summary>(
-    (summary, tracking) => {
-      const progress = computeProgress(tracking);
-      const improved = progress.delta > 0;
-      const isWeighted = unitById.get(tracking.exerciseId) === "kg";
-      const beatsBest = improved && progress.ratio > summary.bestRatio;
+/** Nombre de mises à jour qui ont battu le meilleur résultat du moment. */
+export function countRecords(tracking: Tracking, goal: Goal = "up"): number {
+  let best = tracking.reference;
+  let records = 0;
 
-      return {
-        trackedCount: summary.trackedCount + 1,
-        improvedCount: summary.improvedCount + (improved ? 1 : 0),
-        kilosGained: summary.kilosGained + (isWeighted && improved ? progress.delta : 0),
-        bestRatio: beatsBest ? progress.ratio : summary.bestRatio,
-        bestRatioExerciseId: beatsBest ? tracking.exerciseId : summary.bestRatioExerciseId,
-      };
-    },
-    {
-      trackedCount: 0,
-      improvedCount: 0,
-      kilosGained: 0,
-      bestRatio: 0,
-      bestRatioExerciseId: null,
-    },
-  );
-}
-
-/** Nombre de jours distincts avec au moins une mise à jour, sur les 30 derniers jours. */
-export function countActiveDays(trackings: Tracking[], now = new Date()): number {
-  const floor = now.getTime() - 30 * 24 * 60 * 60 * 1000;
-  const days = new Set<string>();
-
-  for (const tracking of trackings) {
-    for (const entry of tracking.entries) {
-      const time = new Date(entry.date).getTime();
-      if (time >= floor) {
-        days.add(entry.date.slice(0, 10));
-      }
+  for (const entry of tracking.entries) {
+    const beaten = goal === "up" ? entry.value > best : entry.value < best;
+    if (beaten) {
+      records += 1;
+      best = entry.value;
     }
   }
 
-  return days.size;
+  return records;
+}
+
+export function summarize(exercises: Exercise[], trackings: Tracking[]): Summary {
+  const byId = new Map(exercises.map((exercise) => [exercise.id, exercise]));
+
+  return trackings.reduce<Summary>((summary, tracking) => {
+    const exercise = byId.get(tracking.exerciseId);
+    if (!exercise) {
+      return summary;
+    }
+
+    const progress = computeProgress(tracking, exercise.goal);
+    const improved = progress.gain > 0;
+    const weighted = exercise.kind === "charge" && exercise.unit === "kg";
+    const beatsBest = improved && progress.ratio > summary.bestRatio;
+
+    return {
+      trackedCount: summary.trackedCount + 1,
+      improvedCount: summary.improvedCount + (improved ? 1 : 0),
+      kilosGained: summary.kilosGained + (weighted && improved ? progress.gain : 0),
+      records: summary.records + countRecords(tracking, exercise.goal),
+      bestRatio: beatsBest ? progress.ratio : summary.bestRatio,
+      bestRatioExerciseId: beatsBest ? tracking.exerciseId : summary.bestRatioExerciseId,
+    };
+  }, EMPTY_SUMMARY);
 }

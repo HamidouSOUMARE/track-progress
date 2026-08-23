@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeProgress,
-  countActiveDays,
+  countRecords,
   getIncrements,
   isRecord,
   summarize,
@@ -85,8 +85,17 @@ describe("toSeries", () => {
 
 describe("summarize", () => {
   const exercises: Exercise[] = [
-    { id: "squat", name: "Squat", group: "jambes", unit: "kg", custom: false },
-    { id: "tractions", name: "Tractions", group: "dos", unit: "rep", custom: false },
+    { id: "squat", name: "Squat", group: "jambes", unit: "kg", kind: "charge", goal: "up", custom: false },
+    { id: "tractions", name: "Tractions", group: "dos", unit: "rep", kind: "charge", goal: "up", custom: false },
+    {
+      id: "tour-de-taille",
+      name: "Tour de taille",
+      group: "mensurations",
+      unit: "cm",
+      kind: "mesure",
+      goal: "down",
+      custom: false,
+    },
   ];
 
   it("n'additionne que les kilos réellement gagnés", () => {
@@ -109,6 +118,34 @@ describe("summarize", () => {
     expect(summary.improvedCount).toBe(0);
   });
 
+  it("exclut les mensurations du total de kilos", () => {
+    const summary = summarize(exercises, [
+      { ...tracking(100, [entry(110, "2026-02-01T10:00:00.000Z")]), exerciseId: "squat" },
+      {
+        ...tracking(85, [entry(82, "2026-02-01T10:00:00.000Z")]),
+        exerciseId: "tour-de-taille",
+      },
+    ]);
+
+    expect(summary.kilosGained).toBe(10);
+    expect(summary.improvedCount).toBe(2);
+  });
+
+  it("compte les records de tous les suivis", () => {
+    const summary = summarize(exercises, [
+      {
+        ...tracking(100, [entry(105, "2026-02-01T10:00:00.000Z"), entry(110, "2026-02-08T10:00:00.000Z")]),
+        exerciseId: "squat",
+      },
+      {
+        ...tracking(85, [entry(82, "2026-02-01T10:00:00.000Z")]),
+        exerciseId: "tour-de-taille",
+      },
+    ]);
+
+    expect(summary.records).toBe(3);
+  });
+
   it("retient la plus forte progression relative", () => {
     const summary = summarize(exercises, [
       { ...tracking(100, [entry(110, "2026-02-01T10:00:00.000Z")]), exerciseId: "squat" },
@@ -120,32 +157,64 @@ describe("summarize", () => {
   });
 });
 
-describe("countActiveDays", () => {
-  const now = new Date("2026-03-01T12:00:00.000Z");
-
-  it("compte une seule fois plusieurs séances du même jour", () => {
-    const days = countActiveDays(
-      [tracking(60, [entry(62, "2026-02-27T09:00:00.000Z"), entry(64, "2026-02-27T18:00:00.000Z")])],
-      now,
-    );
-
-    expect(days).toBe(1);
-  });
-
-  it("écarte les entrées de plus de 30 jours", () => {
-    const days = countActiveDays(
-      [tracking(60, [entry(62, "2026-01-01T09:00:00.000Z"), entry(64, "2026-02-20T09:00:00.000Z")])],
-      now,
-    );
-
-    expect(days).toBe(1);
-  });
-});
-
 describe("getIncrements", () => {
   it("propose des paliers adaptés à l'unité", () => {
     expect(getIncrements("kg")).toEqual([1.25, 2.5, 5]);
     expect(getIncrements("rep")).toEqual([1, 2, 5]);
     expect(getIncrements("sec")).toEqual([5, 10, 15]);
+  });
+
+  it("propose des paliers plus fins pour une mensuration", () => {
+    expect(getIncrements("cm", "mesure")).toEqual([0.5, 1, 2]);
+    expect(getIncrements("kg", "mesure")).toEqual([0.2, 0.5, 1]);
+  });
+});
+
+describe("objectif à la baisse", () => {
+  // Tour de taille : 85 cm au départ, 82 cm aujourd'hui.
+  const waist = tracking(85, [entry(84, "2026-02-01T10:00:00.000Z"), entry(82, "2026-02-15T10:00:00.000Z")]);
+
+  it("compte une baisse comme une progression", () => {
+    const progress = computeProgress(waist, "down");
+
+    expect(progress.delta).toBe(-3);
+    expect(progress.gain).toBe(3);
+    expect(progress.ratio).toBeCloseTo(0.0353, 3);
+  });
+
+  it("retient la plus petite valeur comme meilleure", () => {
+    expect(computeProgress(waist, "down").best).toBe(82);
+    expect(computeProgress(waist, "up").best).toBe(85);
+  });
+
+  it("ne fait record qu'en descendant sous le minimum", () => {
+    expect(isRecord(waist, 81, "down")).toBe(true);
+    expect(isRecord(waist, 82, "down")).toBe(false);
+    expect(isRecord(waist, 86, "down")).toBe(false);
+  });
+
+  it("laisse la progression à zéro quand la mesure remonte", () => {
+    const gained = tracking(85, [entry(87, "2026-02-01T10:00:00.000Z")]);
+
+    expect(computeProgress(gained, "down").gain).toBe(-2);
+  });
+});
+
+describe("countRecords", () => {
+  it("ne compte que les mises à jour qui battent le meilleur du moment", () => {
+    const climb = tracking(100, [
+      entry(105, "2026-02-01T10:00:00.000Z"),
+      entry(102, "2026-02-08T10:00:00.000Z"),
+      entry(110, "2026-02-15T10:00:00.000Z"),
+    ]);
+
+    expect(countRecords(climb)).toBe(2);
+  });
+
+  it("suit le sens de l'objectif", () => {
+    const slim = tracking(85, [entry(84, "2026-02-01T10:00:00.000Z"), entry(86, "2026-02-08T10:00:00.000Z")]);
+
+    expect(countRecords(slim, "down")).toBe(1);
+    expect(countRecords(slim, "up")).toBe(1);
   });
 });
