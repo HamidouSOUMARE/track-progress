@@ -37,6 +37,8 @@ export interface Exercise {
   goal: Goal;
   /** Réglages de la machine, consignes de technique… saisis librement. */
   note?: string;
+  /** Masqué des listes, mais l'historique est conservé. */
+  archived?: boolean;
   /** Ajouté par l'utilisateur plutôt que repris du catalogue. */
   custom: boolean;
 }
@@ -71,4 +73,27 @@ export interface Progress {
   ratio: number;
   entryCount: number;
   lastUpdate: string | null;
+}
+
+export type WeekdayId =
+  | "lundi"
+  | "mardi"
+  | "mercredi"
+  | "jeudi"
+  | "vendredi"
+  | "samedi"
+  | "dimanche";
+
+export interface Weekday {
+  id: WeekdayId;
+  label: string;
+  /** Initiale affichée dans la bande de la semaine. */
+  letter: string;
+}
+
+export interface Program {
+  id: string;
+  name: string;
+  /** Exercices de chaque jour, dans l'ordre où on les enchaîne. */
+  days: Record<WeekdayId, string[]>;
 }
