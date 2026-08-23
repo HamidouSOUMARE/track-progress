@@ -16,6 +16,22 @@ export function todayWeekday(now = new Date()): WeekdayId {
   return WEEKDAYS[index]!.id;
 }
 
+/** Repère de journée locale, sans passer par UTC qui décalerait la nuit. */
+export function todayStamp(now = new Date()): string {
+  return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+}
+
+/**
+ * Le jour consulté survit à un rafraîchissement, mais pas au changement de date :
+ * ouvrir l'app le lendemain doit montrer la séance du jour, pas celle de la veille.
+ */
+export function resolveSelectedDay(
+  stored: { day: WeekdayId; date: string } | null | undefined,
+  now = new Date(),
+): WeekdayId {
+  return stored && stored.date === todayStamp(now) ? stored.day : todayWeekday(now);
+}
+
 export function emptyWeek(): Record<WeekdayId, string[]> {
   return WEEKDAYS.reduce(
     (week, day) => ({ ...week, [day.id]: [] }),

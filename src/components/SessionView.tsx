@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { ExerciseCard } from "@/components/ExerciseCard";
 import { ExercisePickerSheet } from "@/components/ExercisePickerSheet";
 import { WeekStrip } from "@/components/WeekStrip";
-import { WEEKDAYS, todayWeekday } from "@/data/weekdays";
+import { WEEKDAYS, resolveSelectedDay, todayWeekday } from "@/data/weekdays";
 import { useTrackerStore } from "@/store/tracker-store";
 import type { Exercise, WeekdayId } from "@/lib/types";
 
@@ -21,9 +21,12 @@ export function SessionView({ onOpenExercise, onManagePrograms }: SessionViewPro
   const activeProgramId = useTrackerStore((state) => state.activeProgramId);
   const toggleExerciseInDay = useTrackerStore((state) => state.toggleExerciseInDay);
   const moveExerciseInDay = useTrackerStore((state) => state.moveExerciseInDay);
+  const selectedDay = useTrackerStore((state) => state.selectedDay);
+  const selectDay = useTrackerStore((state) => state.selectDay);
 
   const [today] = useState<WeekdayId>(() => todayWeekday());
-  const [day, setDay] = useState<WeekdayId>(today);
+  // Le jour consulté est persisté : un rafraîchissement ne renvoie pas ailleurs.
+  const day = resolveSelectedDay(selectedDay);
   const [editing, setEditing] = useState(false);
   const [picking, setPicking] = useState(false);
 
@@ -80,7 +83,7 @@ export function SessionView({ onOpenExercise, onManagePrograms }: SessionViewPro
         </span>
       </button>
 
-      <WeekStrip value={day} today={today} counts={counts} onChange={setDay} />
+      <WeekStrip value={day} today={today} counts={counts} onChange={selectDay} />
 
       <div className="flex items-center justify-between gap-3">
         <h2 className="flex items-baseline gap-2 text-lg font-bold text-ink">

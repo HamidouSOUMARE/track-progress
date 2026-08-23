@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { buildDefaultExercises } from "@/data/exercise-catalog";
-import { emptyWeek } from "@/data/weekdays";
+import { emptyWeek, todayStamp } from "@/data/weekdays";
 import { mergeSnapshots } from "@/lib/merge";
 import { isRecord } from "@/lib/progress";
 import type {
@@ -67,6 +67,12 @@ export type Deletion =
   | { type: "program"; program: Program; index: number; wasActive: boolean }
   | { type: "archive"; exerciseId: string; previous: boolean };
 
+export interface SelectedDay {
+  day: WeekdayId;
+  /** Date de la sélection : au-delà, on repart sur le jour courant. */
+  date: string;
+}
+
 export interface TrackerSnapshot {
   exercises: Exercise[];
   trackings: Record<string, Tracking>;
@@ -76,6 +82,7 @@ export interface TrackerSnapshot {
 
 interface TrackerState extends TrackerSnapshot {
   lastDeletion: Deletion | null;
+  selectedDay: SelectedDay | null;
   addExercise: (input: NewExercise) => Exercise;
   removeExercise: (exerciseId: string) => void;
   startTracking: (exerciseId: string, reference: number) => void;
@@ -88,6 +95,7 @@ interface TrackerState extends TrackerSnapshot {
   renameProgram: (programId: string, name: string) => void;
   deleteProgram: (programId: string) => void;
   setActiveProgram: (programId: string | null) => void;
+  selectDay: (day: WeekdayId) => void;
   toggleExerciseInDay: (programId: string, day: WeekdayId, exerciseId: string) => void;
   moveExerciseInDay: (
     programId: string,
@@ -167,6 +175,7 @@ export const useTrackerStore = create<TrackerState>()(
       programs: [],
       activeProgramId: null,
       lastDeletion: null,
+      selectedDay: null,
 
       addExercise: (input) => {
         const base = slugify(input.name) || "exercice";
@@ -359,6 +368,10 @@ export const useTrackerStore = create<TrackerState>()(
         set({ activeProgramId: programId });
       },
 
+      selectDay: (day) => {
+        set({ selectedDay: { day, date: todayStamp() } });
+      },
+
       toggleExerciseInDay: (programId, day, exerciseId) => {
         set((state) => ({
           programs: state.programs.map((program) => {
@@ -494,13 +507,19 @@ export const useTrackerStore = create<TrackerState>()(
       name: STORAGE_KEY,
       version: STORAGE_VERSION,
       storage: createJSONStorage(() => localStorage),
-      partialize: ({ exercises, trackings, programs, activeProgramId }) => ({
+      partialize: ({ exercises, trackings, programs, activeProgramId, selectedDay }) => ({
         exercises,
         trackings,
         programs,
         activeProgramId,
+        selectedDay,
       }),
-      migrate: migrateSnapshot,
+      // Le jour consulté ne fait pas partie de la sauvegarde échangeable :
+      // on le reprend à part pour ne pas le perdre à la réhydratation.
+      migrate: (persisted, version) => ({
+        ...migrateSnapshot(persisted, version),
+        selectedDay: (persisted as { selectedDay?: SelectedDay } | null)?.selectedDay ?? null,
+      }),
     },
   ),
 );

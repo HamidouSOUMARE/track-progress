@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { Dashboard } from "@/components/Dashboard";
 import { buildDefaultExercises } from "@/data/exercise-catalog";
-import { todayWeekday } from "@/data/weekdays";
+import { WEEKDAYS, todayWeekday } from "@/data/weekdays";
 import { useTrackerStore } from "@/store/tracker-store";
 
 beforeEach(() => {
@@ -229,5 +229,21 @@ describe("parcours de suivi", () => {
     expect(
       useTrackerStore.getState().exercises.find((item) => item.id === "squat")?.archived,
     ).toBe(false);
+  });
+
+  it("retrouve le jour consulté après un rechargement", () => {
+    useTrackerStore.getState().createProgram("PPL");
+    const other = WEEKDAYS.find((day) => day.id !== todayWeekday())!;
+
+    const first = render(<Dashboard />);
+    fireEvent.click(screen.getByRole("tab", { name: new RegExp(other.label, "i") }));
+    expect(useTrackerStore.getState().selectedDay?.day).toBe(other.id);
+    first.unmount();
+
+    render(<Dashboard />);
+
+    expect(
+      screen.getByRole("tab", { name: new RegExp(other.label, "i") }).getAttribute("aria-selected"),
+    ).toBe("true");
   });
 });
