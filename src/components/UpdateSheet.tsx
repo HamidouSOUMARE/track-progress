@@ -17,8 +17,8 @@ interface UpdateSheetProps {
   tracking: Tracking | undefined;
   onClose: () => void;
   onCelebrate: (payload: CelebrationPayload) => void;
-  /** Remonte la suppression pour que le tableau de bord propose de l'annuler. */
-  onDeleted: (message: string) => void;
+  /** Remonte une action réversible pour que le tableau de bord propose de l'annuler. */
+  onUndoable: (message: string) => void;
 }
 
 interface Opened {
@@ -46,7 +46,7 @@ export function UpdateSheet({
   tracking,
   onClose,
   onCelebrate,
-  onDeleted,
+  onUndoable,
 }: UpdateSheetProps) {
   const startTracking = useTrackerStore((state) => state.startTracking);
   const updateReference = useTrackerStore((state) => state.updateReference);
@@ -56,6 +56,7 @@ export function UpdateSheet({
 
   const setGoal = useTrackerStore((state) => state.setGoal);
   const setNote = useTrackerStore((state) => state.setNote);
+  const setArchived = useTrackerStore((state) => state.setArchived);
 
   // La feuille reste affichée le temps de se refermer : on garde sous la main
   // le dernier suivi ouvert plutôt que de la vider d'un coup.
@@ -423,7 +424,7 @@ export function UpdateSheet({
                     type="button"
                     onClick={() => {
                       removeEntry(active.id, entry.id);
-                      onDeleted(isMeasure ? "Mesure supprimée" : "Performance supprimée");
+                      onUndoable(isMeasure ? "Mesure supprimée" : "Performance supprimée");
                     }}
                     aria-label={`Supprimer la performance du ${formatDate(entry.date)}`}
                     className="flex size-8 shrink-0 items-center justify-center rounded-pill text-base leading-none text-ink-faint transition-colors hover:bg-surface-hover hover:text-negative"
@@ -437,17 +438,35 @@ export function UpdateSheet({
         </section>
       ) : null}
 
-      <button
-        type="button"
-        onClick={() => {
-          removeExercise(active.id);
-          onClose();
-          onDeleted(`${active.name} supprimé`);
-        }}
-        className="mt-6 w-full rounded-card border border-line py-2.5 text-sm font-semibold text-ink-faint transition-colors hover:border-negative/40 hover:text-negative"
-      >
-        {isMeasure ? "Supprimer cette mensuration" : "Supprimer cet exercice"}
-      </button>
+      <div className="mt-6 flex gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setArchived(active.id, active.archived !== true);
+            onClose();
+            onUndoable(
+              active.archived ? `${active.name} réaffiché` : `${active.name} masqué`,
+            );
+          }}
+          className="flex-1 rounded-card border border-line py-2.5 text-sm font-semibold text-ink-muted transition-colors hover:border-accent/40 hover:text-accent"
+        >
+          {active.archived ? "Réafficher" : "Masquer"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            removeExercise(active.id);
+            onClose();
+            onUndoable(`${active.name} supprimé`);
+          }}
+          className="flex-1 rounded-card border border-line py-2.5 text-sm font-semibold text-ink-faint transition-colors hover:border-negative/40 hover:text-negative"
+        >
+          Supprimer
+        </button>
+      </div>
+      <p className="mt-2 text-center text-xs text-ink-faint">
+        Masquer conserve l&apos;historique. Supprimer l&apos;efface définitivement.
+      </p>
     </Sheet>
   );
 }
