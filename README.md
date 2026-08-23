@@ -30,6 +30,8 @@ l'app le fait savoir.
 - **Historique et sparkline** par exercice. Toute suppression — une performance, un
   suivi entier — s'annule pendant six secondes depuis une barre flottante, sans boîte
   de confirmation.
+- **Fiche modifiable** : nom, groupe, unité et sens du progrès se changent après coup,
+  ce qui rattrape un exercice mal typé à la création ou venu d'un fichier importé.
 - **Notes libres** par suivi : réglages de la machine, points de technique, conditions
   de mesure. Un repère discret sur la carte signale les suivis annotés.
 - **Suivis personnalisés** mesurés en kilos, répétitions, secondes ou centimètres.
