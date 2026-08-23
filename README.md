@@ -23,7 +23,9 @@ l'app le fait savoir.
 - **Historique et sparkline** par exercice, suppression d'une entrée erronée.
 - **Suivis personnalisés** mesurés en kilos, répétitions, secondes ou centimètres.
 - **Statistiques globales** : kilos gagnés, suivis en progression, records battus.
-- **Export / import JSON** pour changer de téléphone sans rien perdre.
+- **Export / import JSON** pour changer de téléphone sans rien perdre. À l'import, le
+  choix est explicite : *fusionner* (rien n'est supprimé) ou *remplacer* (restauration à
+  l'identique, avec le nombre de suivis perdus annoncé avant validation).
 
 Les données restent dans le navigateur (`localStorage`) : pas de compte, pas de serveur,
 utilisable hors-ligne à la salle.
