@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { buildDefaultExercises } from "@/data/exercise-catalog";
+import { mergeSnapshots } from "@/lib/merge";
 import { isRecord } from "@/lib/progress";
 import type {
   Exercise,
@@ -16,6 +17,9 @@ import type {
 } from "@/lib/types";
 
 const STORAGE_KEY = "track-progress";
+
+/** Version du format persisté, reprise dans les fichiers exportés. */
+export const STORAGE_VERSION = 2;
 
 export interface NewExercise {
   name: string;
@@ -54,6 +58,7 @@ interface TrackerState extends TrackerSnapshot {
   logValue: (exerciseId: string, input: LogInput) => LogResult | null;
   removeEntry: (exerciseId: string, entryId: string) => void;
   replaceAll: (snapshot: TrackerSnapshot) => void;
+  mergeAll: (snapshot: TrackerSnapshot) => void;
 }
 
 function createId(): string {
@@ -216,10 +221,14 @@ export const useTrackerStore = create<TrackerState>()(
       replaceAll: (snapshot) => {
         set({ exercises: snapshot.exercises, trackings: snapshot.trackings });
       },
+
+      mergeAll: (snapshot) => {
+        set((state) => mergeSnapshots({ exercises: state.exercises, trackings: state.trackings }, snapshot));
+      },
     }),
     {
       name: STORAGE_KEY,
-      version: 2,
+      version: STORAGE_VERSION,
       storage: createJSONStorage(() => localStorage),
       partialize: ({ exercises, trackings }) => ({ exercises, trackings }),
       migrate: migrateSnapshot,
