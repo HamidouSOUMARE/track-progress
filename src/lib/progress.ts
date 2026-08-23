@@ -114,14 +114,17 @@ export function summarize(exercises: Exercise[], trackings: Tracking[]): Summary
     }
 
     const progress = computeProgress(tracking, exercise.goal);
-    const improved = progress.gain > 0;
+    // Un suivi masqué ne décrit plus l'entraînement en cours, mais son passé
+    // compte toujours dans les totaux cumulés.
+    const active = exercise.archived !== true;
+    const improved = active && progress.gain > 0;
     const weighted = exercise.kind === "charge" && exercise.unit === "kg";
     const beatsBest = improved && progress.ratio > summary.bestRatio;
 
     return {
-      trackedCount: summary.trackedCount + 1,
+      trackedCount: summary.trackedCount + (active ? 1 : 0),
       improvedCount: summary.improvedCount + (improved ? 1 : 0),
-      kilosGained: summary.kilosGained + (weighted && improved ? progress.gain : 0),
+      kilosGained: summary.kilosGained + (weighted && progress.gain > 0 ? progress.gain : 0),
       records: summary.records + countRecords(tracking, exercise.goal),
       bestRatio: beatsBest ? progress.ratio : summary.bestRatio,
       bestRatioExerciseId: beatsBest ? tracking.exerciseId : summary.bestRatioExerciseId,

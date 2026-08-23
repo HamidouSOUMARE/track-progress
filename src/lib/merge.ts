@@ -43,5 +43,16 @@ export function mergeSnapshots(
     trackings[exerciseId] = existing ? mergeTracking(existing, tracking) : tracking;
   }
 
-  return { exercises: [...exercises.values()], trackings };
+  const programs = new Map(current.programs.map((program) => [program.id, program]));
+  for (const program of incoming.programs) {
+    programs.set(program.id, program);
+  }
+
+  return {
+    exercises: [...exercises.values()],
+    trackings,
+    programs: [...programs.values()],
+    // Le programme suivi ici reste prioritaire : la fusion ne change pas de séance.
+    activeProgramId: current.activeProgramId ?? incoming.activeProgramId,
+  };
 }
