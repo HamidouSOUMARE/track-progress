@@ -2,16 +2,25 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { Dashboard } from "@/components/Dashboard";
 import { buildDefaultExercises } from "@/data/exercise-catalog";
+import { todayWeekday } from "@/data/weekdays";
 import { useTrackerStore } from "@/store/tracker-store";
 
 beforeEach(() => {
   localStorage.clear();
-  useTrackerStore.setState({ exercises: buildDefaultExercises(), trackings: {} });
+  useTrackerStore.setState({
+    exercises: buildDefaultExercises(),
+    trackings: {},
+    programs: [],
+    activeProgramId: null,
+    lastDeletion: null,
+  });
 });
 
 afterEach(cleanup);
 
 function openExercise(name: string) {
+  // Les cartes vivent dans l'onglet bibliothèque ; la séance s'affiche par défaut.
+  fireEvent.click(screen.getByRole("tab", { name: /tous les suivis/i }));
   fireEvent.click(screen.getByRole("button", { name: new RegExp(name, "i") }));
   return screen.getByRole("dialog", { name });
 }
@@ -170,5 +179,55 @@ describe("parcours de suivi", () => {
     fireEvent.change(field, { target: { value: "Si" } });
 
     expect(document.activeElement).toBe(field);
+  });
+
+  it("crée un programme, y place un exercice et l'affiche dans la séance", () => {
+    render(<Dashboard />);
+
+    // Vue Séance par défaut : aucun programme, donc l'appel à en créer un.
+    fireEvent.click(screen.getByRole("button", { name: /créer un programme/i }));
+
+    const programs = screen.getByRole("dialog", { name: /mes programmes/i });
+    fireEvent.change(within(programs).getByLabelText(/nom du nouveau programme/i), {
+      target: { value: "Push Pull Legs" },
+    });
+    fireEvent.click(within(programs).getByRole("button", { name: /^créer$/i }));
+    fireEvent.click(within(programs).getByRole("button", { name: /fermer|^×$/i }));
+
+    expect(useTrackerStore.getState().programs[0]?.name).toBe("Push Pull Legs");
+
+    // Le jour du jour est sélectionné : on lui ajoute un exercice.
+    fireEvent.click(screen.getByRole("button", { name: /ajouter des exercices/i }));
+    const picker = screen.getByRole("dialog", { name: /ajouter des exercices/i });
+    fireEvent.click(within(picker).getByRole("button", { name: /^squat$/i }));
+    fireEvent.click(within(picker).getByRole("button", { name: /terminer/i }));
+
+    const today = todayWeekday();
+    expect(useTrackerStore.getState().programs[0]?.days[today]).toEqual(["squat"]);
+    expect(screen.getByRole("button", { name: /^squat — aucune référence$/i })).toBeDefined();
+  });
+
+  it("masque un suivi sans perdre son historique", () => {
+    render(<Dashboard />);
+
+    const dialog = openExercise("Squat");
+    fireEvent.change(within(dialog).getByLabelText(/charge en kg/i), { target: { value: "100" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: /définir ma référence/i }));
+
+    const sheet = openExercise("Squat");
+    fireEvent.click(within(sheet).getByRole("button", { name: /^masquer$/i }));
+
+    const squat = useTrackerStore.getState().exercises.find((item) => item.id === "squat");
+    expect(squat?.archived).toBe(true);
+    expect(useTrackerStore.getState().trackings.squat?.reference).toBe(100);
+
+    // La carte disparaît de la bibliothèque mais reste réaffichable.
+    expect(screen.queryByRole("button", { name: /^squat —/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /masqués/i }));
+    fireEvent.click(screen.getByRole("button", { name: /réafficher/i }));
+
+    expect(
+      useTrackerStore.getState().exercises.find((item) => item.id === "squat")?.archived,
+    ).toBe(false);
   });
 });

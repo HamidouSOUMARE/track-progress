@@ -1,78 +1,48 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { motion } from "motion/react";
 import { AddExerciseDialog } from "@/components/AddExerciseDialog";
 import { Celebration, type CelebrationPayload } from "@/components/Celebration";
-import { ExerciseCard } from "@/components/ExerciseCard";
-import { GroupFilter, type GroupFilterValue } from "@/components/GroupFilter";
 import {
   ImportDialog,
   type ImportMode,
   type ImportPreview,
 } from "@/components/ImportDialog";
-import { StatsBanner } from "@/components/StatsBanner";
+import { LibraryView } from "@/components/LibraryView";
+import { ProgramsSheet } from "@/components/ProgramsSheet";
+import { SessionView } from "@/components/SessionView";
 import { Toast, type ToastMessage } from "@/components/Toast";
 import { UpdateSheet } from "@/components/UpdateSheet";
-import { MUSCLE_GROUPS } from "@/data/muscle-groups";
 import { downloadSnapshot, parseSnapshot } from "@/lib/backup";
-import { summarize } from "@/lib/progress";
 import { useHydrated, useTrackerStore } from "@/store/tracker-store";
-import type { Exercise, MuscleGroupId } from "@/lib/types";
+import type { Exercise } from "@/lib/types";
 
-function normalize(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
+type View = "session" | "library";
+
+const VIEWS: { id: View; label: string }[] = [
+  { id: "session", label: "Séance" },
+  { id: "library", label: "Tous les suivis" },
+];
 
 export function Dashboard() {
   const exercises = useTrackerStore((state) => state.exercises);
   const trackings = useTrackerStore((state) => state.trackings);
+  const programs = useTrackerStore((state) => state.programs);
+  const activeProgramId = useTrackerStore((state) => state.activeProgramId);
   const replaceAll = useTrackerStore((state) => state.replaceAll);
   const mergeAll = useTrackerStore((state) => state.mergeAll);
   const undoDelete = useTrackerStore((state) => state.undoDelete);
   const hydrated = useHydrated();
 
-  const [filter, setFilter] = useState<GroupFilterValue>("all");
-  const [query, setQuery] = useState("");
+  const [view, setView] = useState<View>("session");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [managingPrograms, setManagingPrograms] = useState(false);
   const [celebration, setCelebration] = useState<CelebrationPayload | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [pendingImport, setPendingImport] = useState<ImportPreview | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const trackingList = useMemo(() => Object.values(trackings), [trackings]);
-  const summary = useMemo(() => summarize(exercises, trackingList), [exercises, trackingList]);
-
-  const counts = useMemo(() => {
-    const initial = Object.fromEntries(
-      MUSCLE_GROUPS.map((group) => [group.id, 0]),
-    ) as Record<MuscleGroupId, number>;
-
-    return exercises.reduce((acc, exercise) => {
-      acc[exercise.group] += 1;
-      return acc;
-    }, initial);
-  }, [exercises]);
-
-  const visible = useMemo(() => {
-    const needle = normalize(query.trim());
-
-    return exercises.filter((exercise) => {
-      const matchesGroup = filter === "all" || exercise.group === filter;
-      const matchesQuery = needle.length === 0 || normalize(exercise.name).includes(needle);
-      return matchesGroup && matchesQuery;
-    });
-  }, [exercises, filter, query]);
-
-  const sections = useMemo(() => {
-    return MUSCLE_GROUPS.map((group) => ({
-      group,
-      items: visible.filter((exercise) => exercise.group === group.id),
-    })).filter((section) => section.items.length > 0);
-  }, [visible]);
 
   const selected: Exercise | null =
     exercises.find((exercise) => exercise.id === selectedId) ?? null;
@@ -125,10 +95,7 @@ export function Dashboard() {
             Track Progress
           </span>
           <h1 className="text-2xl font-black text-ink sm:text-3xl">
-            Tes charges,{" "}
-            <span className="text-accent">
-              {summary.improvedCount > 0 ? "en hausse" : "sous contrôle"}
-            </span>
+            Tes charges, <span className="text-accent">en hausse</span>
           </h1>
           <p className="text-sm text-ink-muted">
             Note ta charge après chaque série et regarde la courbe monter.
@@ -138,7 +105,7 @@ export function Dashboard() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => downloadSnapshot({ exercises, trackings })}
+            onClick={() => downloadSnapshot({ exercises, trackings, programs, activeProgramId })}
             className="rounded-pill border border-line px-3 py-2 text-xs font-semibold text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
           >
             Exporter
@@ -167,74 +134,52 @@ export function Dashboard() {
             onClick={() => setAdding(true)}
             className="rounded-pill bg-accent px-4 py-2 text-xs font-bold text-accent-ink transition-transform active:scale-95"
           >
-            + Exercice
+            + Suivi
           </button>
         </div>
       </header>
 
-      <StatsBanner summary={summary} />
+      <div
+        role="tablist"
+        aria-label="Vue"
+        className="flex gap-1 self-start rounded-pill border border-line bg-surface p-1"
+      >
+        {VIEWS.map((option) => {
+          const selectedView = option.id === view;
 
-      <div className="flex flex-col gap-3">
-        <label className="relative flex items-center">
-          <span className="sr-only">Rechercher un exercice</span>
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Rechercher un exercice…"
-            className="w-full rounded-pill border border-line bg-surface px-4 py-2.5 text-sm text-ink outline-none placeholder:text-ink-faint"
-          />
-        </label>
-
-        <GroupFilter
-          value={filter}
-          counts={counts}
-          total={exercises.length}
-          onChange={setFilter}
-        />
+          return (
+            <button
+              key={option.id}
+              role="tab"
+              type="button"
+              aria-selected={selectedView}
+              onClick={() => setView(option.id)}
+              className={`relative rounded-pill px-4 py-1.5 text-sm font-semibold transition-colors ${
+                selectedView ? "text-accent-ink" : "text-ink-muted hover:text-ink"
+              }`}
+            >
+              {selectedView ? (
+                <motion.span
+                  layoutId="view-switch"
+                  className="absolute inset-0 rounded-pill bg-accent"
+                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                />
+              ) : null}
+              <span className="relative">{option.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {!hydrated ? (
         <p className="py-16 text-center text-sm text-ink-faint">Chargement de tes données…</p>
-      ) : visible.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-card border border-dashed border-line py-16 text-center">
-          <p className="text-sm text-ink-muted">Aucun exercice ne correspond à ta recherche.</p>
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className="rounded-pill bg-accent px-4 py-2 text-xs font-bold text-accent-ink"
-          >
-            Créer cet exercice
-          </button>
-        </div>
+      ) : view === "session" ? (
+        <SessionView
+          onOpenExercise={setSelectedId}
+          onManagePrograms={() => setManagingPrograms(true)}
+        />
       ) : (
-        <div className="flex flex-col gap-8">
-          {sections.map((section) => (
-            <section key={section.group.id} className="flex flex-col gap-3">
-              <h2 className="flex items-center gap-2 text-sm font-bold tracking-wide text-ink-muted uppercase">
-                <span
-                  aria-hidden="true"
-                  className="size-2 rounded-pill"
-                  style={{ backgroundColor: `var(${section.group.accent})` }}
-                />
-                {section.group.label}
-                <span className="tabular text-xs font-medium text-ink-faint">
-                  {section.items.length}
-                </span>
-              </h2>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {section.items.map((exercise) => (
-                  <ExerciseCard
-                    key={exercise.id}
-                    exercise={exercise}
-                    tracking={trackings[exercise.id]}
-                    onOpen={setSelectedId}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
+        <LibraryView onOpenExercise={setSelectedId} onAdd={() => setAdding(true)} />
       )}
 
       <UpdateSheet
@@ -242,7 +187,7 @@ export function Dashboard() {
         tracking={selected ? trackings[selected.id] : undefined}
         onClose={() => setSelectedId(null)}
         onCelebrate={setCelebration}
-        onDeleted={(message) => flash(message, "Annuler")}
+        onUndoable={(message) => flash(message, "Annuler")}
       />
 
       <AddExerciseDialog
@@ -252,6 +197,12 @@ export function Dashboard() {
           setAdding(false);
           setSelectedId(exerciseId);
         }}
+      />
+
+      <ProgramsSheet
+        open={managingPrograms}
+        onClose={() => setManagingPrograms(false)}
+        onDeleted={(message) => flash(message, "Annuler")}
       />
 
       <ImportDialog
