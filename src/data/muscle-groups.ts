@@ -28,14 +28,22 @@ export const MUSCLE_GROUPS: readonly MuscleGroup[] = [
     shortLabel: "Mesures",
     accent: "--color-group-mensurations",
   },
+  // Refuge des groupes qu'on ne sait pas rattacher : mieux vaut visible que perdu.
+  { id: "autres", label: "Autres", shortLabel: "Autres", accent: "--color-group-autres" },
 ] as const;
 
 const GROUPS_BY_ID = new Map(MUSCLE_GROUPS.map((group) => [group.id, group]));
 
+const FALLBACK_GROUP = GROUPS_BY_ID.get("autres")!;
+
+/**
+ * Ne lève jamais : un groupe inconnu venu d'un fichier importé ne doit pas
+ * faire tomber le rendu, sinon l'app devient inutilisable au chargement suivant.
+ */
 export function getMuscleGroup(id: MuscleGroupId): MuscleGroup {
-  const group = GROUPS_BY_ID.get(id);
-  if (!group) {
-    throw new Error(`Groupe musculaire inconnu : ${id}`);
-  }
-  return group;
+  return GROUPS_BY_ID.get(id) ?? FALLBACK_GROUP;
+}
+
+export function isKnownGroup(id: string): id is MuscleGroupId {
+  return GROUPS_BY_ID.has(id as MuscleGroupId);
 }

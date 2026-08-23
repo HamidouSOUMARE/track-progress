@@ -5,7 +5,8 @@ export type MuscleGroupId =
   | "epaules"
   | "bras"
   | "abdos"
-  | "mensurations";
+  | "mensurations"
+  | "autres";
 
 /** Unité mesurée : charge, répétitions, temps ou centimètres. */
 export type Unit = "kg" | "rep" | "sec" | "cm";

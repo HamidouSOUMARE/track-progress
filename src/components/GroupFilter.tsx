@@ -14,15 +14,18 @@ interface GroupFilterProps {
 }
 
 export function GroupFilter({ value, counts, total, onChange }: GroupFilterProps) {
-  const options: { id: GroupFilterValue; label: string; count: number; accent: string }[] = [
-    { id: "all", label: "Tous", count: total, accent: "var(--color-accent)" },
-    ...MUSCLE_GROUPS.map((group) => ({
-      id: group.id as GroupFilterValue,
+  type Option = { id: GroupFilterValue; label: string; count: number; accent: string };
+
+  const options: Option[] = [
+    { id: "all", label: "Tous", count: total, accent: "var(--color-accent)" } satisfies Option,
+    ...MUSCLE_GROUPS.map<Option>((group) => ({
+      id: group.id,
       label: group.label,
       count: counts[group.id] ?? 0,
       accent: `var(${group.accent})`,
     })),
-  ];
+    // Un groupe vide n'a rien à filtrer : il encombrerait la bande.
+  ].filter((option) => option.id === "all" || option.count > 0);
 
   return (
     <div
