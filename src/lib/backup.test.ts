@@ -37,4 +37,38 @@ describe("parseSnapshot", () => {
   it("préserve l'historique du fichier importé", () => {
     expect(parseSnapshot(v1File).trackings.squat?.reference).toBe(100);
   });
+
+  it("conserve les programmes du fichier importé", () => {
+    const withProgram = JSON.stringify({
+      version: 3,
+      exercises: [],
+      trackings: {},
+      programs: [
+        {
+          id: "ppl",
+          name: "PPL",
+          days: {
+            lundi: ["squat"],
+            mardi: [],
+            mercredi: [],
+            jeudi: [],
+            vendredi: [],
+            samedi: [],
+            dimanche: [],
+          },
+        },
+      ],
+      activeProgramId: "ppl",
+    });
+
+    const snapshot = parseSnapshot(withProgram);
+
+    expect(snapshot.programs).toHaveLength(1);
+    expect(snapshot.programs[0]?.days.lundi).toEqual(["squat"]);
+    expect(snapshot.activeProgramId).toBe("ppl");
+  });
+
+  it("accepte un fichier sans programmes", () => {
+    expect(parseSnapshot(v1File).programs).toEqual([]);
+  });
 });
