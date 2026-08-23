@@ -20,7 +20,11 @@ l'app le fait savoir.
 - **Mise à jour en deux gestes** : incréments rapides (+1,25 / +2,5 / +5 kg), répétitions
   et séries optionnelles.
 - **Animation de célébration** quand une charge progresse, avec badge « record personnel ».
-- **Historique et sparkline** par exercice, suppression d'une entrée erronée.
+- **Historique et sparkline** par exercice. Toute suppression — une performance, un
+  suivi entier — s'annule pendant six secondes depuis une barre flottante, sans boîte
+  de confirmation.
+- **Notes libres** par suivi : réglages de la machine, points de technique, conditions
+  de mesure. Un repère discret sur la carte signale les suivis annotés.
 - **Suivis personnalisés** mesurés en kilos, répétitions, secondes ou centimètres.
 - **Statistiques globales** : kilos gagnés, suivis en progression, records battus.
 - **Export / import JSON** pour changer de téléphone sans rien perdre. À l'import, le
