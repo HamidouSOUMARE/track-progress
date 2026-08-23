@@ -5,7 +5,6 @@ import type { Summary } from "@/lib/progress";
 
 interface StatsBannerProps {
   summary: Summary;
-  activeDays: number;
 }
 
 interface Tile {
@@ -16,7 +15,7 @@ interface Tile {
   highlight?: boolean;
 }
 
-export function StatsBanner({ summary, activeDays }: StatsBannerProps) {
+export function StatsBanner({ summary }: StatsBannerProps) {
   const tiles: Tile[] = [
     {
       label: "Kilos gagnés",
@@ -32,10 +31,11 @@ export function StatsBanner({ summary, activeDays }: StatsBannerProps) {
       hint: "exercices suivis",
     },
     {
-      label: "Jours actifs",
-      value: activeDays,
-      suffix: "j",
-      hint: "sur 30 jours",
+      // Un compteur qui ne recule jamais, vacances ou pas.
+      label: "Records battus",
+      value: summary.records,
+      suffix: summary.records > 1 ? "records" : "record",
+      hint: "depuis le début",
     },
   ];
 
@@ -51,7 +51,7 @@ export function StatsBanner({ summary, activeDays }: StatsBannerProps) {
             tile.highlight
               ? "border-accent/25 bg-accent-soft"
               : "border-line bg-surface"
-          } ${tile.label === "Jours actifs" ? "col-span-2 sm:col-span-1" : ""}`}
+          } ${tile.label === "Records battus" ? "col-span-2 sm:col-span-1" : ""}`}
         >
           <span className="text-xs font-medium tracking-wide text-ink-faint uppercase">
             {tile.label}

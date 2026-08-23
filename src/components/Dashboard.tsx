@@ -10,7 +10,7 @@ import { StatsBanner } from "@/components/StatsBanner";
 import { UpdateSheet } from "@/components/UpdateSheet";
 import { MUSCLE_GROUPS } from "@/data/muscle-groups";
 import { downloadSnapshot, parseSnapshot } from "@/lib/backup";
-import { countActiveDays, summarize } from "@/lib/progress";
+import { summarize } from "@/lib/progress";
 import { useHydrated, useTrackerStore } from "@/store/tracker-store";
 import type { Exercise, MuscleGroupId } from "@/lib/types";
 
@@ -37,7 +37,6 @@ export function Dashboard() {
 
   const trackingList = useMemo(() => Object.values(trackings), [trackings]);
   const summary = useMemo(() => summarize(exercises, trackingList), [exercises, trackingList]);
-  const activeDays = useMemo(() => countActiveDays(trackingList), [trackingList]);
 
   const counts = useMemo(() => {
     const initial = Object.fromEntries(
@@ -154,7 +153,7 @@ export function Dashboard() {
         ) : null}
       </AnimatePresence>
 
-      <StatsBanner summary={summary} activeDays={activeDays} />
+      <StatsBanner summary={summary} />
 
       <div className="flex flex-col gap-3">
         <label className="relative flex items-center">
