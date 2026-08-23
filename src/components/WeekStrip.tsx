@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "motion/react";
 import { WEEKDAYS } from "@/data/weekdays";
 import type { WeekdayId } from "@/lib/types";
 
@@ -25,12 +24,17 @@ export function WeekStrip({ value, today, counts, onChange }: WeekStripProps) {
             role="tab"
             type="button"
             aria-selected={selected}
-            aria-label={`${day.label}${count > 0 ? ` — ${count} exercices` : " — repos"}`}
+            aria-label={`${day.label}${day.id === today ? " (aujourd'hui)" : ""}${
+              count > 0 ? ` — ${count} exercices` : " — repos"
+            }`}
             onClick={() => onChange(day.id)}
             className={`relative flex flex-1 flex-col items-center gap-1.5 rounded-card border py-2.5 transition-colors ${
               selected
-                ? "border-accent/50 bg-accent-soft"
-                : "border-line bg-surface hover:border-ink-faint/40"
+                ? "border-accent bg-accent-soft"
+                : day.id === today
+                  ? // Contour discret : le jour courant reste repérable même ailleurs dans la semaine.
+                    "border-accent/40 bg-surface"
+                  : "border-line bg-surface hover:border-ink-faint/40"
             }`}
           >
             <span
@@ -48,13 +52,6 @@ export function WeekStrip({ value, today, counts, onChange }: WeekStripProps) {
               }`}
             />
 
-            {day.id === today ? (
-              <motion.span
-                layoutId="today-marker"
-                aria-hidden="true"
-                className="absolute inset-x-3 -bottom-px h-0.5 rounded-pill bg-accent"
-              />
-            ) : null}
           </button>
         );
       })}
