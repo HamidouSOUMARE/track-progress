@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ExerciseFields, type ExerciseDraft } from "@/components/ExerciseFields";
 import { Sheet } from "@/components/Sheet";
 import { DeltaBadge } from "@/components/DeltaBadge";
 import { getMuscleGroup } from "@/data/muscle-groups";
@@ -10,7 +11,7 @@ import { formatDate, formatValue, formatWithUnit, unitSuffix } from "@/lib/forma
 import { computeProgress, getIncrements } from "@/lib/progress";
 import { useTrackerStore } from "@/store/tracker-store";
 import type { CelebrationPayload } from "@/components/Celebration";
-import type { Exercise, Goal, Tracking } from "@/lib/types";
+import type { Exercise, Tracking } from "@/lib/types";
 
 interface UpdateSheetProps {
   exercise: Exercise | null;
@@ -25,11 +26,6 @@ interface Opened {
   exercise: Exercise;
   tracking: Tracking | undefined;
 }
-
-const GOALS: { id: Goal; label: string }[] = [
-  { id: "up", label: "↑ Augmenter" },
-  { id: "down", label: "↓ Réduire" },
-];
 
 function round(value: number): number {
   return Math.round(value * 100) / 100;
@@ -54,9 +50,9 @@ export function UpdateSheet({
   const removeEntry = useTrackerStore((state) => state.removeEntry);
   const removeExercise = useTrackerStore((state) => state.removeExercise);
 
-  const setGoal = useTrackerStore((state) => state.setGoal);
   const setNote = useTrackerStore((state) => state.setNote);
   const setArchived = useTrackerStore((state) => state.setArchived);
+  const updateExercise = useTrackerStore((state) => state.updateExercise);
 
   // La feuille reste affichée le temps de se refermer : on garde sous la main
   // le dernier suivi ouvert plutôt que de la vider d'un coup.
@@ -82,6 +78,7 @@ export function UpdateSheet({
   const [sets, setSets] = useState("");
   const [referenceDraft, setReferenceDraft] = useState<string>("");
   const [editingReference, setEditingReference] = useState(false);
+  const [draft, setDraft] = useState<ExerciseDraft | null>(null);
   const [syncedId, setSyncedId] = useState<string | null>(exercise?.id ?? null);
 
   const activeId = exercise?.id ?? null;
@@ -92,6 +89,7 @@ export function UpdateSheet({
       setReps("");
       setSets("");
       setEditingReference(false);
+      setDraft(null);
     }
   }
 
@@ -169,14 +167,72 @@ export function UpdateSheet({
           </span>
           <h2 className="text-xl font-bold text-ink">{active.name}</h2>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-pill border border-line px-3 py-1.5 text-xs font-semibold text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
-        >
-          Fermer
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              setDraft(
+                draft
+                  ? null
+                  : {
+                      name: active.name,
+                      group: active.group,
+                      unit: active.unit,
+                      kind: active.kind,
+                      goal: active.goal,
+                    },
+              )
+            }
+            aria-expanded={draft !== null}
+            className={`rounded-pill border px-3 py-1.5 text-xs font-semibold transition-colors ${
+              draft
+                ? "border-accent/50 bg-accent-soft text-accent"
+                : "border-line text-ink-muted hover:bg-surface-hover hover:text-ink"
+            }`}
+          >
+            Modifier
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-pill border border-line px-3 py-1.5 text-xs font-semibold text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
+          >
+            Fermer
+          </button>
+        </div>
       </header>
+
+      {draft ? (
+        <section className="mb-5 flex flex-col gap-5 rounded-card border border-line bg-surface-raised p-4">
+          <ExerciseFields
+            draft={draft}
+            onChange={setDraft}
+            entryCount={progress?.entryCount ?? 0}
+            initialUnit={active.unit}
+          />
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setDraft(null)}
+              className="flex-1 rounded-card border border-line py-2.5 text-sm font-semibold text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              disabled={draft.name.trim().length === 0}
+              onClick={() => {
+                updateExercise(active.id, { ...draft, name: draft.name.trim() });
+                setDraft(null);
+              }}
+              className="flex-[2] rounded-card bg-accent py-2.5 text-sm font-bold text-accent-ink disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Enregistrer
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       {progress ? (
         <dl className="mb-5 grid grid-cols-3 gap-2 rounded-card border border-line bg-surface-raised p-3 text-center">
@@ -299,30 +355,6 @@ export function UpdateSheet({
             />
           </label>
         </div>
-      ) : null}
-
-      {isMeasure ? (
-        <fieldset className="mt-5 flex items-center justify-between gap-3 rounded-card border border-line bg-surface-raised px-3 py-2.5">
-          <legend className="sr-only">Sens de l&apos;objectif</legend>
-          <span className="text-xs font-medium text-ink-muted">Je veux que ça</span>
-          <div className="flex gap-1.5">
-            {GOALS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                aria-pressed={active.goal === option.id}
-                onClick={() => setGoal(active.id, option.id)}
-                className={`rounded-pill border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  active.goal === option.id
-                    ? "border-accent/50 bg-accent-soft text-accent"
-                    : "border-line text-ink-muted hover:text-ink"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </fieldset>
       ) : null}
 
       <button

@@ -349,4 +349,42 @@ describe("parcours de suivi", () => {
       .exercises.find((item) => item.id === "curl-incline");
     expect(imported?.group).toBe("bras");
   });
+
+  it("change l'unité d'un exercice depuis sa fiche", () => {
+    render(<Dashboard />);
+
+    const sheet = openExercise("Tractions");
+    fireEvent.click(within(sheet).getByRole("button", { name: /^modifier$/i }));
+    fireEvent.click(within(sheet).getByRole("button", { name: /charge \(kg\)/i }));
+    fireEvent.click(within(sheet).getByRole("button", { name: /^enregistrer$/i }));
+
+    expect(useTrackerStore.getState().exercises.find((i) => i.id === "tractions")?.unit).toBe("kg");
+    expect(within(sheet).getByLabelText(/charge en kg/i)).toBeDefined();
+  });
+
+  it("avertit que les valeurs enregistrées gardent leur nombre", () => {
+    useTrackerStore.getState().startTracking("tractions", 8);
+    useTrackerStore.getState().logValue("tractions", { value: 12, reps: null, sets: null });
+
+    render(<Dashboard />);
+
+    const sheet = openExercise("Tractions");
+    fireEvent.click(within(sheet).getByRole("button", { name: /^modifier$/i }));
+    fireEvent.click(within(sheet).getByRole("button", { name: /charge \(kg\)/i }));
+
+    expect(sheet.textContent).toMatch(/gardent leur nombre/i);
+  });
+
+  it("permet d'inverser le sens du progrès d'une charge", () => {
+    render(<Dashboard />);
+
+    const sheet = openExercise("Tractions");
+    fireEvent.click(within(sheet).getByRole("button", { name: /^modifier$/i }));
+    fireEvent.click(within(sheet).getByRole("button", { name: /réduire/i }));
+    fireEvent.click(within(sheet).getByRole("button", { name: /^enregistrer$/i }));
+
+    expect(useTrackerStore.getState().exercises.find((i) => i.id === "tractions")?.goal).toBe(
+      "down",
+    );
+  });
 });
