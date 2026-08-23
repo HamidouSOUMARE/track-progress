@@ -6,6 +6,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { buildDefaultExercises } from "@/data/exercise-catalog";
 import { emptyWeek, todayStamp } from "@/data/weekdays";
 import { mergeSnapshots } from "@/lib/merge";
+import { sanitizeSnapshot } from "@/lib/sanitize";
 import { isRecord } from "@/lib/progress";
 import type {
   Exercise,
@@ -22,7 +23,7 @@ import type {
 const STORAGE_KEY = "track-progress";
 
 /** Version du format persisté, reprise dans les fichiers exportés. */
-export const STORAGE_VERSION = 3;
+export const STORAGE_VERSION = 4;
 
 export interface NewExercise {
   name: string;
@@ -147,11 +148,22 @@ export function migrateSnapshot(persisted: unknown, version: number): TrackerSna
   const activeProgramId = snapshot.activeProgramId ?? null;
 
   if (!Array.isArray(snapshot.exercises)) {
-    return { exercises: buildDefaultExercises(), trackings, programs, activeProgramId };
+    return sanitizeSnapshot({
+      exercises: buildDefaultExercises(),
+      trackings,
+      programs,
+      activeProgramId,
+    });
   }
 
   if (version >= 2) {
-    return { exercises: snapshot.exercises, trackings, programs, activeProgramId };
+    // Les versions 2 et 3 ont pu enregistrer des groupes venus d'un import.
+    return sanitizeSnapshot({
+      exercises: snapshot.exercises,
+      trackings,
+      programs,
+      activeProgramId,
+    });
   }
 
   const upgraded = snapshot.exercises.map<Exercise>((exercise) => ({
@@ -164,7 +176,12 @@ export function migrateSnapshot(persisted: unknown, version: number): TrackerSna
     (exercise) => exercise.kind === "mesure" && !known.has(exercise.id),
   );
 
-  return { exercises: [...upgraded, ...added], trackings, programs, activeProgramId };
+  return sanitizeSnapshot({
+    exercises: [...upgraded, ...added],
+    trackings,
+    programs,
+    activeProgramId,
+  });
 }
 
 export const useTrackerStore = create<TrackerState>()(

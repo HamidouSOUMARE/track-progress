@@ -1,3 +1,4 @@
+import { collectRemappedGroups, sanitizeSnapshot } from "@/lib/sanitize";
 import { STORAGE_VERSION, migrateSnapshot, type TrackerSnapshot } from "@/store/tracker-store";
 
 const FILE_PREFIX = "track-progress";
@@ -30,7 +31,13 @@ export function downloadSnapshot(snapshot: TrackerSnapshot): void {
  * bruit. Un fichier plus ancien passe par la même migration que les données
  * locales, sinon il réinjecterait des suivis incomplets.
  */
-export function parseSnapshot(raw: string): TrackerSnapshot {
+export interface SnapshotReport {
+  snapshot: TrackerSnapshot;
+  /** Groupes du fichier rattachés à ceux de l'app, à signaler à l'utilisateur. */
+  remappedGroups: string[];
+}
+
+export function readSnapshot(raw: string): SnapshotReport {
   let parsed: unknown;
 
   try {
@@ -51,7 +58,15 @@ export function parseSnapshot(raw: string): TrackerSnapshot {
     throw new Error("Format de sauvegarde inattendu");
   }
 
-  return migrateSnapshot(
+  // Relevé sur les données brutes : la migration nettoie déjà les groupes.
+  const remappedGroups = collectRemappedGroups({
+    exercises,
+    trackings: {},
+    programs: [],
+    activeProgramId: null,
+  });
+
+  const migrated = migrateSnapshot(
     {
       exercises,
       trackings,
@@ -61,4 +76,10 @@ export function parseSnapshot(raw: string): TrackerSnapshot {
     },
     version ?? 1,
   );
+
+  return { snapshot: sanitizeSnapshot(migrated), remappedGroups };
+}
+
+export function parseSnapshot(raw: string): TrackerSnapshot {
+  return readSnapshot(raw).snapshot;
 }

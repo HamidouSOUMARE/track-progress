@@ -1,0 +1,36 @@
+{
+  "version": 3,
+  "exportedAt": "2026-08-23T09:00:00.000Z",
+  "exercises": [
+    { "id": "developpe-incline", "name": "Développé incliné", "group": "pectoraux", "unit": "kg", "kind": "charge", "goal": "up", "note": "4 x 6-10", "custom": true },
+    { "id": "curl-incline", "name": "Curl incliné haltères", "group": "biceps", "unit": "kg", "kind": "charge", "goal": "up", "note": "3 x 8-12", "custom": true },
+    { "id": "traction-assistee", "name": "Traction assistée", "group": "dos", "unit": "kg", "kind": "charge", "goal": "down", "note": "valeur = assistance", "custom": true },
+    { "id": "triceps-pushdown", "name": "Triceps pushdown", "group": "triceps", "unit": "kg", "kind": "charge", "goal": "up", "note": "3 x 10-12", "custom": true },
+    { "id": "squat", "name": "Squat ou hack squat", "group": "quadriceps", "unit": "kg", "kind": "charge", "goal": "up", "note": "4 x 6-10", "custom": true },
+    { "id": "leg-curl-assis", "name": "Leg curl assis", "group": "ischios", "unit": "kg", "kind": "charge", "goal": "up", "note": "3 x 10-12", "custom": true },
+    { "id": "mollets-debout", "name": "Mollets debout", "group": "mollets", "unit": "kg", "kind": "charge", "goal": "up", "note": "4 x 10-15", "custom": true },
+    { "id": "hip-thrust", "name": "Hip thrust", "group": "fessiers", "unit": "kg", "kind": "charge", "goal": "up", "note": "3 x 8-12", "custom": true },
+    { "id": "poids-corporel", "name": "Poids corporel", "group": "mensurations", "unit": "kg", "kind": "mesure", "goal": "down", "note": "Moyenne hebdomadaire", "custom": true },
+    { "id": "tour-de-taille", "name": "Tour de taille", "group": "mensurations", "unit": "cm", "kind": "mesure", "goal": "down", "note": "Tous les 15 jours", "custom": true }
+  ],
+  "trackings": {
+    "poids-corporel": { "exerciseId": "poids-corporel", "reference": 77.1, "referenceDate": "2026-08-22T09:00:00.000Z", "entries": [] },
+    "tour-de-taille": { "exerciseId": "tour-de-taille", "reference": 89, "referenceDate": "2026-08-22T09:00:00.000Z", "entries": [] }
+  },
+  "programs": [
+    {
+      "id": "recomposition-12-semaines",
+      "name": "Recomposition 12 semaines - 5 séances",
+      "days": {
+        "lundi": ["developpe-incline", "curl-incline"],
+        "mardi": ["traction-assistee", "triceps-pushdown"],
+        "mercredi": ["squat", "leg-curl-assis", "mollets-debout"],
+        "jeudi": [],
+        "vendredi": ["hip-thrust"],
+        "samedi": [],
+        "dimanche": []
+      }
+    }
+  ],
+  "activeProgramId": "recomposition-12-semaines"
+}
