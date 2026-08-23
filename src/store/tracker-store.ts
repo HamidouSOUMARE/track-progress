@@ -6,7 +6,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { buildDefaultExercises } from "@/data/exercise-catalog";
 import { emptyWeek, todayStamp } from "@/data/weekdays";
 import { mergeSnapshots } from "@/lib/merge";
-import { sanitizeSnapshot } from "@/lib/sanitize";
+import { sanitizeExercise, sanitizeSnapshot } from "@/lib/sanitize";
 import { isRecord } from "@/lib/progress";
 import type {
   Exercise,
@@ -90,6 +90,7 @@ interface TrackerState extends TrackerSnapshot {
   updateReference: (exerciseId: string, reference: number) => void;
   setGoal: (exerciseId: string, goal: Goal) => void;
   setNote: (exerciseId: string, note: string) => void;
+  updateExercise: (exerciseId: string, patch: Partial<NewExercise>) => void;
   setArchived: (exerciseId: string, archived: boolean) => void;
   undoDelete: () => void;
   createProgram: (name: string) => Program;
@@ -266,6 +267,16 @@ export const useTrackerStore = create<TrackerState>()(
             ...state.trackings,
             [exerciseId]: { ...tracking, reference, referenceDate: new Date().toISOString() },
           },
+        }));
+      },
+
+      updateExercise: (exerciseId, patch) => {
+        set((state) => ({
+          exercises: state.exercises.map((exercise) =>
+            exercise.id === exerciseId
+              ? sanitizeExercise({ ...exercise, ...patch })
+              : exercise,
+          ),
         }));
       },
 

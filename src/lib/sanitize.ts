@@ -48,7 +48,7 @@ export function resolveGroup(raw: unknown): MuscleGroupId {
   return GROUP_ALIASES[key] ?? "autres";
 }
 
-function sanitizeExercise(raw: Exercise): Exercise {
+export function sanitizeExercise(raw: Exercise): Exercise {
   const kind = KINDS.includes(raw.kind) ? raw.kind : "charge";
   const group = resolveGroup(raw.group);
 

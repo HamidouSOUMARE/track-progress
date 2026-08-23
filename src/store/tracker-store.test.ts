@@ -308,6 +308,53 @@ describe("suppression et programmes", () => {
   });
 });
 
+describe("updateExercise", () => {
+  it("change l'unité d'un exercice importé sans toucher à l'historique", () => {
+    store().startTracking("tractions", 8);
+    store().logValue("tractions", { value: 12, reps: null, sets: null });
+
+    store().updateExercise("tractions", { unit: "kg" });
+
+    expect(store().exercises.find((item) => item.id === "tractions")?.unit).toBe("kg");
+    expect(store().trackings.tractions?.entries[0]?.value).toBe(12);
+    expect(store().trackings.tractions?.reference).toBe(8);
+  });
+
+  it("renomme et reclasse un exercice", () => {
+    store().updateExercise("squat", { name: "Hack squat", group: "jambes" });
+
+    const squat = store().exercises.find((item) => item.id === "squat");
+    expect(squat?.name).toBe("Hack squat");
+    expect(squat?.group).toBe("jambes");
+  });
+
+  it("inverse le sens du progrès d'une charge", () => {
+    store().updateExercise("tractions", { goal: "down" });
+
+    expect(store().exercises.find((item) => item.id === "tractions")?.goal).toBe("down");
+  });
+
+  it("range une mensuration dans son groupe quel que soit le groupe demandé", () => {
+    store().updateExercise("squat", { kind: "mesure", group: "jambes" });
+
+    expect(store().exercises.find((item) => item.id === "squat")?.group).toBe("mensurations");
+  });
+
+  it("refuse une unité invalide plutôt que de l'enregistrer", () => {
+    store().updateExercise("squat", { unit: "livres" as never });
+
+    expect(store().exercises.find((item) => item.id === "squat")?.unit).toBe("kg");
+  });
+
+  it("laisse les autres suivis intacts", () => {
+    const before = store().exercises.length;
+    store().updateExercise("squat", { name: "Squat lourd" });
+
+    expect(store().exercises).toHaveLength(before);
+    expect(store().exercises.find((item) => item.id === "tractions")?.name).toBe("Tractions");
+  });
+});
+
 describe("migrateSnapshot", () => {
   const v1 = {
     exercises: [{ id: "squat", name: "Squat", group: "jambes", unit: "kg", custom: false }],
