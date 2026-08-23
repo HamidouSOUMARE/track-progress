@@ -44,17 +44,25 @@ export interface LogResult {
   previous: number;
 }
 
+/** Dernière suppression, gardée en mémoire le temps de proposer une annulation. */
+export type Deletion =
+  | { type: "entry"; exerciseId: string; entry: LogEntry; index: number }
+  | { type: "exercise"; exercise: Exercise; index: number; tracking: Tracking | undefined };
+
 export interface TrackerSnapshot {
   exercises: Exercise[];
   trackings: Record<string, Tracking>;
 }
 
 interface TrackerState extends TrackerSnapshot {
+  lastDeletion: Deletion | null;
   addExercise: (input: NewExercise) => Exercise;
   removeExercise: (exerciseId: string) => void;
   startTracking: (exerciseId: string, reference: number) => void;
   updateReference: (exerciseId: string, reference: number) => void;
   setGoal: (exerciseId: string, goal: Goal) => void;
+  setNote: (exerciseId: string, note: string) => void;
+  undoDelete: () => void;
   logValue: (exerciseId: string, input: LogInput) => LogResult | null;
   removeEntry: (exerciseId: string, entryId: string) => void;
   replaceAll: (snapshot: TrackerSnapshot) => void;
@@ -121,6 +129,7 @@ export const useTrackerStore = create<TrackerState>()(
     (set, get) => ({
       exercises: buildDefaultExercises(),
       trackings: {},
+      lastDeletion: null,
 
       addExercise: (input) => {
         const base = slugify(input.name) || "exercice";
@@ -134,11 +143,20 @@ export const useTrackerStore = create<TrackerState>()(
 
       removeExercise: (exerciseId) => {
         set((state) => {
+          const index = state.exercises.findIndex((exercise) => exercise.id === exerciseId);
+          const exercise = state.exercises[index];
+          if (!exercise) {
+            return state;
+          }
+
           const trackings = { ...state.trackings };
+          const tracking = trackings[exerciseId];
           delete trackings[exerciseId];
+
           return {
-            exercises: state.exercises.filter((exercise) => exercise.id !== exerciseId),
+            exercises: state.exercises.filter((item) => item.id !== exerciseId),
             trackings,
+            lastDeletion: { type: "exercise", exercise, index, tracking },
           };
         });
       },
@@ -169,6 +187,17 @@ export const useTrackerStore = create<TrackerState>()(
             ...state.trackings,
             [exerciseId]: { ...tracking, reference, referenceDate: new Date().toISOString() },
           },
+        }));
+      },
+
+      setNote: (exerciseId, note) => {
+        const trimmed = note.trim();
+        set((state) => ({
+          exercises: state.exercises.map((exercise) =>
+            exercise.id === exerciseId
+              ? { ...exercise, note: trimmed.length > 0 ? note : undefined }
+              : exercise,
+          ),
         }));
       },
 
@@ -203,7 +232,10 @@ export const useTrackerStore = create<TrackerState>()(
 
       removeEntry: (exerciseId, entryId) => {
         const tracking = get().trackings[exerciseId];
-        if (!tracking) {
+        const index = tracking?.entries.findIndex((entry) => entry.id === entryId) ?? -1;
+        const removed = tracking?.entries[index];
+
+        if (!tracking || !removed) {
           return;
         }
 
@@ -215,7 +247,44 @@ export const useTrackerStore = create<TrackerState>()(
               entries: tracking.entries.filter((entry) => entry.id !== entryId),
             },
           },
+          lastDeletion: { type: "entry", exerciseId, entry: removed, index },
         }));
+      },
+
+      /** Remet la dernière suppression à sa place exacte, historique compris. */
+      undoDelete: () => {
+        const deletion = get().lastDeletion;
+        if (!deletion) {
+          return;
+        }
+
+        set((state) => {
+          if (deletion.type === "exercise") {
+            const exercises = [...state.exercises];
+            exercises.splice(deletion.index, 0, deletion.exercise);
+
+            return {
+              exercises,
+              trackings: deletion.tracking
+                ? { ...state.trackings, [deletion.exercise.id]: deletion.tracking }
+                : state.trackings,
+              lastDeletion: null,
+            };
+          }
+
+          const tracking = state.trackings[deletion.exerciseId];
+          if (!tracking) {
+            return { lastDeletion: null };
+          }
+
+          const entries = [...tracking.entries];
+          entries.splice(deletion.index, 0, deletion.entry);
+
+          return {
+            trackings: { ...state.trackings, [deletion.exerciseId]: { ...tracking, entries } },
+            lastDeletion: null,
+          };
+        });
       },
 
       replaceAll: (snapshot) => {

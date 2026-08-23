@@ -35,7 +35,9 @@ export interface Exercise {
   unit: Unit;
   kind: TrackKind;
   goal: Goal;
-  /** Ajouté par l'utilisateur, donc supprimable. */
+  /** Réglages de la machine, consignes de technique… saisis librement. */
+  note?: string;
+  /** Ajouté par l'utilisateur plutôt que repris du catalogue. */
   custom: boolean;
 }
 

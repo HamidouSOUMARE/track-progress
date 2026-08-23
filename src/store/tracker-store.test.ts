@@ -134,6 +134,60 @@ describe("updateReference", () => {
   });
 });
 
+describe("setNote", () => {
+  it("attache une note à un suivi", () => {
+    store().setNote("squat", "Barre au niveau des trapèzes, cran 7");
+
+    expect(store().exercises.find((exercise) => exercise.id === "squat")?.note).toBe(
+      "Barre au niveau des trapèzes, cran 7",
+    );
+  });
+
+  it("efface la note quand il ne reste que des espaces", () => {
+    store().setNote("squat", "Cran 7");
+    store().setNote("squat", "   ");
+
+    expect(store().exercises.find((exercise) => exercise.id === "squat")?.note).toBeUndefined();
+  });
+});
+
+describe("undoDelete", () => {
+  it("remet une performance supprimée à sa place dans l'historique", () => {
+    store().startTracking("squat", 100);
+    store().logValue("squat", { value: 105, reps: null, sets: null });
+    store().logValue("squat", { value: 110, reps: null, sets: null });
+    const first = store().trackings.squat?.entries[0]?.id;
+
+    store().removeEntry("squat", first!);
+    expect(store().trackings.squat?.entries).toHaveLength(1);
+
+    store().undoDelete();
+
+    expect(store().trackings.squat?.entries.map((entry) => entry.value)).toEqual([105, 110]);
+  });
+
+  it("restaure un suivi supprimé avec son historique et son rang", () => {
+    const before = store().exercises.map((exercise) => exercise.id);
+    store().startTracking("squat", 100);
+    store().logValue("squat", { value: 105, reps: null, sets: null });
+
+    store().removeExercise("squat");
+    expect(store().trackings.squat).toBeUndefined();
+
+    store().undoDelete();
+
+    expect(store().exercises.map((exercise) => exercise.id)).toEqual(before);
+    expect(store().trackings.squat?.entries).toHaveLength(1);
+  });
+
+  it("ne fait rien quand il n'y a rien à annuler", () => {
+    const before = store().exercises.length;
+    store().undoDelete();
+
+    expect(store().exercises).toHaveLength(before);
+  });
+});
+
 describe("migrateSnapshot", () => {
   const v1 = {
     exercises: [{ id: "squat", name: "Squat", group: "jambes", unit: "kg", custom: false }],
