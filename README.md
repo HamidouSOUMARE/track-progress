@@ -10,6 +10,13 @@ Le carnet papier (ou les notes du téléphone) répond mal à la seule question 
 référence de départ, le record personnel et une courbe. Et quand la charge monte,
 l'app le fait savoir.
 
+## Deux vues
+
+- **Séance** — la vue par défaut. Le programme suivi, la semaine en bandeau, et les
+  exercices du jour prêts à être mis à jour. C'est l'écran qu'on ouvre à la salle.
+- **Tous les suivis** — la bibliothèque complète : statistiques, recherche, filtres par
+  groupe musculaire, et les suivis masqués repliés en bas.
+
 ## Fonctionnalités
 
 - **Charge de référence + charge actuelle** avec écart en kg et en pourcentage.
@@ -27,6 +34,12 @@ l'app le fait savoir.
   de mesure. Un repère discret sur la carte signale les suivis annotés.
 - **Suivis personnalisés** mesurés en kilos, répétitions, secondes ou centimètres.
 - **Statistiques globales** : kilos gagnés, suivis en progression, records battus.
+- **Programmes** : autant que nécessaire (PPL, full body, saison…), chacun avec ses
+  exercices placés sur les jours de la semaine, réordonnables. Un seul est « suivi » à la
+  fois et alimente la vue Séance.
+- **Masquer ou supprimer** : masquer sort un suivi des listes en conservant tout son
+  historique — utile pour un exercice mis de côté quelques mois ; supprimer efface pour
+  de bon. Les deux s'annulent depuis la barre flottante.
 - **Export / import JSON** pour changer de téléphone sans rien perdre. À l'import, le
   choix est explicite : *fusionner* (rien n'est supprimé) ou *remplacer* (restauration à
   l'identique, avec le nombre de suivis perdus annoncé avant validation).
