@@ -5,7 +5,15 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { buildDefaultExercises } from "@/data/exercise-catalog";
 import { isRecord } from "@/lib/progress";
-import type { Exercise, LogEntry, MuscleGroupId, Tracking, Unit } from "@/lib/types";
+import type {
+  Exercise,
+  Goal,
+  LogEntry,
+  MuscleGroupId,
+  TrackKind,
+  Tracking,
+  Unit,
+} from "@/lib/types";
 
 const STORAGE_KEY = "track-progress";
 
@@ -13,6 +21,8 @@ export interface NewExercise {
   name: string;
   group: MuscleGroupId;
   unit: Unit;
+  kind: TrackKind;
+  goal: Goal;
 }
 
 export interface LogInput {
@@ -23,7 +33,10 @@ export interface LogInput {
 
 export interface LogResult {
   record: boolean;
+  /** Écart brut avec la dernière valeur, signe compris. */
   delta: number;
+  /** Écart lu dans le sens de l'objectif : positif = ça progresse. */
+  gain: number;
   previous: number;
 }
 
@@ -37,6 +50,7 @@ interface TrackerState extends TrackerSnapshot {
   removeExercise: (exerciseId: string) => void;
   startTracking: (exerciseId: string, reference: number) => void;
   updateReference: (exerciseId: string, reference: number) => void;
+  setGoal: (exerciseId: string, goal: Goal) => void;
   logValue: (exerciseId: string, input: LogInput) => LogResult | null;
   removeEntry: (exerciseId: string, entryId: string) => void;
   replaceAll: (snapshot: TrackerSnapshot) => void;
@@ -66,6 +80,35 @@ function createEntry(input: LogInput): LogEntry {
     sets: input.sets,
     date: new Date().toISOString(),
   };
+}
+
+/**
+ * v1 ne connaissait que les charges. On complète les exercices existants et on
+ * ajoute les mensurations par défaut sans toucher à l'historique déjà saisi.
+ */
+export function migrateSnapshot(persisted: unknown, version: number): TrackerSnapshot {
+  const snapshot = (persisted ?? {}) as Partial<TrackerSnapshot>;
+  const trackings = snapshot.trackings ?? {};
+
+  if (!Array.isArray(snapshot.exercises)) {
+    return { exercises: buildDefaultExercises(), trackings };
+  }
+
+  if (version >= 2) {
+    return { exercises: snapshot.exercises, trackings };
+  }
+
+  const upgraded = snapshot.exercises.map<Exercise>((exercise) => ({
+    ...exercise,
+    kind: exercise.kind ?? "charge",
+    goal: exercise.goal ?? "up",
+  }));
+  const known = new Set(upgraded.map((exercise) => exercise.id));
+  const added = buildDefaultExercises().filter(
+    (exercise) => exercise.kind === "mesure" && !known.has(exercise.id),
+  );
+
+  return { exercises: [...upgraded, ...added], trackings };
 }
 
 export const useTrackerStore = create<TrackerState>()(
@@ -124,14 +167,24 @@ export const useTrackerStore = create<TrackerState>()(
         }));
       },
 
+      setGoal: (exerciseId, goal) => {
+        set((state) => ({
+          exercises: state.exercises.map((exercise) =>
+            exercise.id === exerciseId ? { ...exercise, goal } : exercise,
+          ),
+        }));
+      },
+
       logValue: (exerciseId, input) => {
         const tracking = get().trackings[exerciseId];
         if (!tracking) {
           return null;
         }
 
+        const goal = get().exercises.find((exercise) => exercise.id === exerciseId)?.goal ?? "up";
         const previous = tracking.entries.at(-1)?.value ?? tracking.reference;
-        const record = isRecord(tracking, input.value);
+        const record = isRecord(tracking, input.value, goal);
+        const delta = input.value - previous;
 
         set((state) => ({
           trackings: {
@@ -140,7 +193,7 @@ export const useTrackerStore = create<TrackerState>()(
           },
         }));
 
-        return { record, delta: input.value - previous, previous };
+        return { record, delta, gain: goal === "up" ? delta : -delta, previous };
       },
 
       removeEntry: (exerciseId, entryId) => {
@@ -166,9 +219,10 @@ export const useTrackerStore = create<TrackerState>()(
     }),
     {
       name: STORAGE_KEY,
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => localStorage),
       partialize: ({ exercises, trackings }) => ({ exercises, trackings }),
+      migrate: migrateSnapshot,
     },
   ),
 );
