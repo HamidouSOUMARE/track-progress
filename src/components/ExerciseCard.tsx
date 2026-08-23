@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { motion } from "motion/react";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
 import { DeltaBadge } from "@/components/DeltaBadge";
@@ -15,7 +16,7 @@ interface ExerciseCardProps {
   onOpen: (exerciseId: string) => void;
 }
 
-export function ExerciseCard({ exercise, tracking, onOpen }: ExerciseCardProps) {
+function ExerciseCardComponent({ exercise, tracking, onOpen }: ExerciseCardProps) {
   const group = getMuscleGroup(exercise.group);
   const accent = `var(${group.accent})`;
   const progress = tracking ? computeProgress(tracking, exercise.goal) : null;
@@ -127,3 +128,6 @@ export function ExerciseCard({ exercise, tracking, onOpen }: ExerciseCardProps) 
     </motion.button>
   );
 }
+
+/** Mémoïsée : une note tapée lettre par lettre ne doit pas rejouer toute la grille. */
+export const ExerciseCard = memo(ExerciseCardComponent);

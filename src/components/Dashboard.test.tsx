@@ -157,4 +157,18 @@ describe("parcours de suivi", () => {
     const squat = useTrackerStore.getState().exercises.find((item) => item.id === "squat");
     expect(squat?.note).toBe("Barre cran 7, pieds écartés");
   });
+
+  it("garde le focus dans le champ de notes pendant la saisie", () => {
+    render(<Dashboard />);
+
+    const dialog = openExercise("Squat");
+    const field = within(dialog).getByLabelText(/notes/i);
+    field.focus();
+
+    // Chaque lettre écrit dans le store : la feuille ne doit pas reprendre le focus.
+    fireEvent.change(field, { target: { value: "S" } });
+    fireEvent.change(field, { target: { value: "Si" } });
+
+    expect(document.activeElement).toBe(field);
+  });
 });

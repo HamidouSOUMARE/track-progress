@@ -13,6 +13,14 @@ interface SheetProps {
 /** Feuille modale : ancrée en bas sur mobile, centrée sur grand écran. */
 export function Sheet({ open, title, onClose, children }: SheetProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  // La fermeture change d'identité à chaque rendu du parent. La garder dans une
+  // ref évite de rejouer l'effet — et donc de reprendre le focus au champ en
+  // cours de saisie, ce qui referme le clavier sur mobile.
+  const closeRef = useRef(onClose);
+
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
 
   useEffect(() => {
     if (!open) {
@@ -21,7 +29,7 @@ export function Sheet({ open, title, onClose, children }: SheetProps) {
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onClose();
+        closeRef.current();
       }
     };
 
@@ -34,7 +42,7 @@ export function Sheet({ open, title, onClose, children }: SheetProps) {
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [open, onClose]);
+  }, [open]);
 
   return (
     <AnimatePresence>
