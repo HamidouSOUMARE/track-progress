@@ -42,7 +42,9 @@ l'app le fait savoir.
   de bon. Les deux s'annulent depuis la barre flottante.
 - **Export / import JSON** pour changer de téléphone sans rien perdre. À l'import, le
   choix est explicite : *fusionner* (rien n'est supprimé) ou *remplacer* (restauration à
-  l'identique, avec le nombre de suivis perdus annoncé avant validation).
+  l'identique, avec le nombre de suivis perdus annoncé avant validation). Un fichier
+  d'exemple, généré depuis les types de l'app, documente le format attendu et s'affiche
+  automatiquement quand un fichier est refusé.
 
 Les données restent dans le navigateur (`localStorage`) : pas de compte, pas de serveur,
 utilisable hors-ligne à la salle.
