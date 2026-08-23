@@ -1,9 +1,13 @@
-import type { TrackerSnapshot } from "@/store/tracker-store";
+import { STORAGE_VERSION, migrateSnapshot, type TrackerSnapshot } from "@/store/tracker-store";
 
 const FILE_PREFIX = "track-progress";
 
 export function downloadSnapshot(snapshot: TrackerSnapshot): void {
-  const payload = JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), ...snapshot }, null, 2);
+  const payload = JSON.stringify(
+    { version: STORAGE_VERSION, exportedAt: new Date().toISOString(), ...snapshot },
+    null,
+    2,
+  );
   const url = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
   const link = document.createElement("a");
 
@@ -13,7 +17,11 @@ export function downloadSnapshot(snapshot: TrackerSnapshot): void {
   URL.revokeObjectURL(url);
 }
 
-/** Valide un fichier importé : on refuse plutôt que d'écraser des données avec du bruit. */
+/**
+ * Valide un fichier importé : on refuse plutôt que d'écraser des données avec du
+ * bruit. Un fichier plus ancien passe par la même migration que les données
+ * locales, sinon il réinjecterait des suivis incomplets.
+ */
 export function parseSnapshot(raw: string): TrackerSnapshot {
   const parsed: unknown = JSON.parse(raw);
 
@@ -21,11 +29,13 @@ export function parseSnapshot(raw: string): TrackerSnapshot {
     throw new Error("Fichier illisible");
   }
 
-  const { exercises, trackings } = parsed as Partial<TrackerSnapshot>;
+  const { exercises, trackings, version } = parsed as Partial<TrackerSnapshot> & {
+    version?: number;
+  };
 
   if (!Array.isArray(exercises) || typeof trackings !== "object" || trackings === null) {
     throw new Error("Format de sauvegarde inattendu");
   }
 
-  return { exercises, trackings };
+  return migrateSnapshot({ exercises, trackings }, version ?? 1);
 }
