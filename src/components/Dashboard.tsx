@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
 import { AddExerciseDialog } from "@/components/AddExerciseDialog";
 import { Celebration, type CelebrationPayload } from "@/components/Celebration";
 import { ExerciseCard } from "@/components/ExerciseCard";
@@ -12,6 +11,7 @@ import {
   type ImportPreview,
 } from "@/components/ImportDialog";
 import { StatsBanner } from "@/components/StatsBanner";
+import { Toast, type ToastMessage } from "@/components/Toast";
 import { UpdateSheet } from "@/components/UpdateSheet";
 import { MUSCLE_GROUPS } from "@/data/muscle-groups";
 import { downloadSnapshot, parseSnapshot } from "@/lib/backup";
@@ -31,6 +31,7 @@ export function Dashboard() {
   const trackings = useTrackerStore((state) => state.trackings);
   const replaceAll = useTrackerStore((state) => state.replaceAll);
   const mergeAll = useTrackerStore((state) => state.mergeAll);
+  const undoDelete = useTrackerStore((state) => state.undoDelete);
   const hydrated = useHydrated();
 
   const [filter, setFilter] = useState<GroupFilterValue>("all");
@@ -38,7 +39,7 @@ export function Dashboard() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [celebration, setCelebration] = useState<CelebrationPayload | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
   const [pendingImport, setPendingImport] = useState<ImportPreview | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -76,9 +77,14 @@ export function Dashboard() {
   const selected: Exercise | null =
     exercises.find((exercise) => exercise.id === selectedId) ?? null;
 
-  const flashNotice = (message: string) => {
-    setNotice(message);
-    window.setTimeout(() => setNotice(null), 4000);
+  const flash = (message: string, actionLabel?: string) => {
+    const key = Date.now();
+    setToast({ key, message, actionLabel });
+    // Une annulation mérite un peu plus de temps qu'un simple accusé de réception.
+    window.setTimeout(
+      () => setToast((current) => (current?.key === key ? null : current)),
+      actionLabel ? 6000 : 4000,
+    );
   };
 
   /** On lit le fichier, puis on laisse l'utilisateur choisir : fusionner ou remplacer. */
@@ -86,7 +92,7 @@ export function Dashboard() {
     try {
       setPendingImport({ fileName: file.name, snapshot: parseSnapshot(await file.text()) });
     } catch (error) {
-      flashNotice(error instanceof Error ? error.message : "Import impossible");
+      flash(error instanceof Error ? error.message : "Import impossible");
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -101,10 +107,10 @@ export function Dashboard() {
 
     if (mode === "merge") {
       mergeAll(pendingImport.snapshot);
-      flashNotice("Sauvegarde fusionnée");
+      flash("Sauvegarde fusionnée");
     } else {
       replaceAll(pendingImport.snapshot);
-      flashNotice("Sauvegarde restaurée");
+      flash("Sauvegarde restaurée");
     }
 
     setPendingImport(null);
@@ -165,20 +171,6 @@ export function Dashboard() {
           </button>
         </div>
       </header>
-
-      <AnimatePresence>
-        {notice ? (
-          <motion.p
-            role="status"
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="rounded-card border border-line bg-surface px-4 py-2 text-sm text-ink-muted"
-          >
-            {notice}
-          </motion.p>
-        ) : null}
-      </AnimatePresence>
 
       <StatsBanner summary={summary} />
 
@@ -250,6 +242,7 @@ export function Dashboard() {
         tracking={selected ? trackings[selected.id] : undefined}
         onClose={() => setSelectedId(null)}
         onCelebrate={setCelebration}
+        onDeleted={(message) => flash(message, "Annuler")}
       />
 
       <AddExerciseDialog
@@ -266,6 +259,15 @@ export function Dashboard() {
         currentExercises={exercises}
         onCancel={() => setPendingImport(null)}
         onConfirm={handleImport}
+      />
+
+      <Toast
+        toast={toast}
+        onAction={() => {
+          undoDelete();
+          setToast(null);
+        }}
+        onDismiss={() => setToast(null)}
       />
 
       <Celebration payload={celebration} onDone={() => setCelebration(null)} />

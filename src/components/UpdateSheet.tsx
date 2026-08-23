@@ -17,6 +17,8 @@ interface UpdateSheetProps {
   tracking: Tracking | undefined;
   onClose: () => void;
   onCelebrate: (payload: CelebrationPayload) => void;
+  /** Remonte la suppression pour que le tableau de bord propose de l'annuler. */
+  onDeleted: (message: string) => void;
 }
 
 interface Opened {
@@ -39,7 +41,13 @@ function vibrate(pattern: number[]): void {
   }
 }
 
-export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: UpdateSheetProps) {
+export function UpdateSheet({
+  exercise,
+  tracking,
+  onClose,
+  onCelebrate,
+  onDeleted,
+}: UpdateSheetProps) {
   const startTracking = useTrackerStore((state) => state.startTracking);
   const updateReference = useTrackerStore((state) => state.updateReference);
   const logValue = useTrackerStore((state) => state.logValue);
@@ -47,6 +55,7 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
   const removeExercise = useTrackerStore((state) => state.removeExercise);
 
   const setGoal = useTrackerStore((state) => state.setGoal);
+  const setNote = useTrackerStore((state) => state.setNote);
 
   // La feuille reste affichée le temps de se refermer : on garde sous la main
   // le dernier suivi ouvert plutôt que de la vider d'un coup.
@@ -330,6 +339,30 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
             : "Définir ma référence"}
       </button>
 
+      <section className="mt-6">
+        <label
+          htmlFor={`note-${active.id}`}
+          className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink"
+        >
+          Notes
+          <span className="text-xs font-normal text-ink-faint">
+            {isMeasure ? "conditions de mesure" : "réglages, technique"}
+          </span>
+        </label>
+        <textarea
+          id={`note-${active.id}`}
+          value={active.note ?? ""}
+          onChange={(event) => setNote(active.id, event.target.value)}
+          rows={3}
+          placeholder={
+            isMeasure
+              ? "Ex. le matin à jeun, au niveau du nombril"
+              : "Ex. siège cran 4, poignées larges, souffler en haut"
+          }
+          className="w-full resize-y rounded-card border border-line bg-surface-raised px-3 py-2.5 text-sm leading-relaxed text-ink outline-none placeholder:text-ink-faint"
+        />
+      </section>
+
       {progress ? (
         <section className="mt-6">
           <div className="mb-2 flex items-center justify-between">
@@ -388,11 +421,14 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
                   </div>
                   <button
                     type="button"
-                    onClick={() => removeEntry(active.id, entry.id)}
+                    onClick={() => {
+                      removeEntry(active.id, entry.id);
+                      onDeleted(isMeasure ? "Mesure supprimée" : "Performance supprimée");
+                    }}
                     aria-label={`Supprimer la performance du ${formatDate(entry.date)}`}
-                    className="rounded-pill px-2 py-1 text-xs text-ink-faint transition-colors hover:bg-surface-hover hover:text-negative"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-pill text-base leading-none text-ink-faint transition-colors hover:bg-surface-hover hover:text-negative"
                   >
-                    Supprimer
+                    <span aria-hidden="true">×</span>
                   </button>
                 </li>
               ))}
@@ -401,18 +437,17 @@ export function UpdateSheet({ exercise, tracking, onClose, onCelebrate }: Update
         </section>
       ) : null}
 
-      {active.custom ? (
-        <button
-          type="button"
-          onClick={() => {
-            removeExercise(active.id);
-            onClose();
-          }}
-          className="mt-6 w-full rounded-card border border-line py-2.5 text-sm font-semibold text-ink-faint transition-colors hover:border-negative/40 hover:text-negative"
-        >
-          Supprimer cet exercice
-        </button>
-      ) : null}
+      <button
+        type="button"
+        onClick={() => {
+          removeExercise(active.id);
+          onClose();
+          onDeleted(`${active.name} supprimé`);
+        }}
+        className="mt-6 w-full rounded-card border border-line py-2.5 text-sm font-semibold text-ink-faint transition-colors hover:border-negative/40 hover:text-negative"
+      >
+        {isMeasure ? "Supprimer cette mensuration" : "Supprimer cet exercice"}
+      </button>
     </Sheet>
   );
 }

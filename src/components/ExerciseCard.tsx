@@ -51,6 +51,22 @@ export function ExerciseCard({ exercise, tracking, onOpen }: ExerciseCardProps) 
               style={{ backgroundColor: accent }}
             />
             {group.label}
+            {exercise.note ? (
+              <span className="text-ink-muted" title="Note enregistrée">
+                <svg
+                  viewBox="0 0 16 16"
+                  className="size-3"
+                  aria-hidden="true"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                >
+                  <path d="M3 4h10M3 8h10M3 12h6" />
+                </svg>
+                <span className="sr-only">Note enregistrée</span>
+              </span>
+            ) : null}
           </span>
           <h3 className="text-base leading-snug font-semibold text-ink">{exercise.name}</h3>
         </div>

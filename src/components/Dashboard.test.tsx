@@ -125,4 +125,36 @@ describe("parcours de suivi", () => {
 
     expect(useTrackerStore.getState().exercises).toHaveLength(1);
   });
+
+  it("permet d'annuler la suppression d'une performance", () => {
+    render(<Dashboard />);
+
+    const dialog = openExercise("Squat");
+    fireEvent.change(within(dialog).getByLabelText(/charge en kg/i), { target: { value: "100" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: /définir ma référence/i }));
+
+    const update = openExercise("Squat");
+    fireEvent.change(within(update).getByLabelText(/charge en kg/i), { target: { value: "105" } });
+    fireEvent.click(within(update).getByRole("button", { name: /enregistrer la performance/i }));
+
+    const history = openExercise("Squat");
+    fireEvent.click(within(history).getByRole("button", { name: /supprimer la performance/i }));
+    expect(useTrackerStore.getState().trackings.squat?.entries).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: /^annuler$/i }));
+
+    expect(useTrackerStore.getState().trackings.squat?.entries).toHaveLength(1);
+  });
+
+  it("enregistre une note de réglage sur l'exercice", () => {
+    render(<Dashboard />);
+
+    const dialog = openExercise("Squat");
+    fireEvent.change(within(dialog).getByLabelText(/notes/i), {
+      target: { value: "Barre cran 7, pieds écartés" },
+    });
+
+    const squat = useTrackerStore.getState().exercises.find((item) => item.id === "squat");
+    expect(squat?.note).toBe("Barre cran 7, pieds écartés");
+  });
 });
