@@ -57,4 +57,72 @@ describe("parcours de suivi", () => {
     expect(tracking?.entries[0]?.value).toBe(83);
     expect(screen.getByRole("status").textContent).toMatch(/meilleur|plus bas|record/i);
   });
+
+  it("laisse choisir entre fusionner et remplacer avant d'importer", async () => {
+    const { container } = render(<Dashboard />);
+    const initialCount = useTrackerStore.getState().exercises.length;
+
+    const backup = JSON.stringify({
+      version: 2,
+      exercises: [
+        {
+          id: "squat",
+          name: "Squat",
+          group: "jambes",
+          unit: "kg",
+          kind: "charge",
+          goal: "up",
+          custom: false,
+        },
+      ],
+      trackings: {},
+    });
+
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    const file = new File([backup], "sauvegarde.json", { type: "application/json" });
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input!);
+
+    const dialog = await screen.findByRole("dialog", { name: /importer une sauvegarde/i });
+
+    // La sauvegarde ne contient qu'un suivi : le mode remplacer annonce la casse.
+    expect(within(dialog).getByRole("radio", { name: /remplacer/i }).closest("label")?.textContent)
+      .toMatch(new RegExp(`${initialCount - 1} suivis`));
+
+    fireEvent.click(within(dialog).getByRole("radio", { name: /fusionner/i }));
+    fireEvent.click(within(dialog).getByRole("button", { name: /^importer$/i }));
+
+    expect(useTrackerStore.getState().exercises).toHaveLength(initialCount);
+  });
+
+  it("remplace intégralement quand on choisit de restaurer", async () => {
+    const { container } = render(<Dashboard />);
+
+    const backup = JSON.stringify({
+      version: 2,
+      exercises: [
+        {
+          id: "squat",
+          name: "Squat",
+          group: "jambes",
+          unit: "kg",
+          kind: "charge",
+          goal: "up",
+          custom: false,
+        },
+      ],
+      trackings: {},
+    });
+
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    const file = new File([backup], "sauvegarde.json", { type: "application/json" });
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input!);
+
+    const dialog = await screen.findByRole("dialog", { name: /importer une sauvegarde/i });
+    fireEvent.click(within(dialog).getByRole("radio", { name: /remplacer/i }));
+    fireEvent.click(within(dialog).getByRole("button", { name: /^importer$/i }));
+
+    expect(useTrackerStore.getState().exercises).toHaveLength(1);
+  });
 });

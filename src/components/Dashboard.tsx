@@ -6,6 +6,11 @@ import { AddExerciseDialog } from "@/components/AddExerciseDialog";
 import { Celebration, type CelebrationPayload } from "@/components/Celebration";
 import { ExerciseCard } from "@/components/ExerciseCard";
 import { GroupFilter, type GroupFilterValue } from "@/components/GroupFilter";
+import {
+  ImportDialog,
+  type ImportMode,
+  type ImportPreview,
+} from "@/components/ImportDialog";
 import { StatsBanner } from "@/components/StatsBanner";
 import { UpdateSheet } from "@/components/UpdateSheet";
 import { MUSCLE_GROUPS } from "@/data/muscle-groups";
@@ -25,6 +30,7 @@ export function Dashboard() {
   const exercises = useTrackerStore((state) => state.exercises);
   const trackings = useTrackerStore((state) => state.trackings);
   const replaceAll = useTrackerStore((state) => state.replaceAll);
+  const mergeAll = useTrackerStore((state) => state.mergeAll);
   const hydrated = useHydrated();
 
   const [filter, setFilter] = useState<GroupFilterValue>("all");
@@ -33,6 +39,7 @@ export function Dashboard() {
   const [adding, setAdding] = useState(false);
   const [celebration, setCelebration] = useState<CelebrationPayload | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [pendingImport, setPendingImport] = useState<ImportPreview | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const trackingList = useMemo(() => Object.values(trackings), [trackings]);
@@ -69,18 +76,38 @@ export function Dashboard() {
   const selected: Exercise | null =
     exercises.find((exercise) => exercise.id === selectedId) ?? null;
 
-  const handleImport = async (file: File) => {
+  const flashNotice = (message: string) => {
+    setNotice(message);
+    window.setTimeout(() => setNotice(null), 4000);
+  };
+
+  /** On lit le fichier, puis on laisse l'utilisateur choisir : fusionner ou remplacer. */
+  const handleFile = async (file: File) => {
     try {
-      replaceAll(parseSnapshot(await file.text()));
-      setNotice("Sauvegarde importée");
+      setPendingImport({ fileName: file.name, snapshot: parseSnapshot(await file.text()) });
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Import impossible");
+      flashNotice(error instanceof Error ? error.message : "Import impossible");
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
-      window.setTimeout(() => setNotice(null), 4000);
     }
+  };
+
+  const handleImport = (mode: ImportMode) => {
+    if (!pendingImport) {
+      return;
+    }
+
+    if (mode === "merge") {
+      mergeAll(pendingImport.snapshot);
+      flashNotice("Sauvegarde fusionnée");
+    } else {
+      replaceAll(pendingImport.snapshot);
+      flashNotice("Sauvegarde restaurée");
+    }
+
+    setPendingImport(null);
   };
 
   return (
@@ -125,7 +152,7 @@ export function Dashboard() {
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) {
-                void handleImport(file);
+                void handleFile(file);
               }
             }}
           />
@@ -232,6 +259,13 @@ export function Dashboard() {
           setAdding(false);
           setSelectedId(exerciseId);
         }}
+      />
+
+      <ImportDialog
+        preview={pendingImport}
+        currentExercises={exercises}
+        onCancel={() => setPendingImport(null)}
+        onConfirm={handleImport}
       />
 
       <Celebration payload={celebration} onDone={() => setCelebration(null)} />
