@@ -246,4 +246,30 @@ describe("parcours de suivi", () => {
       screen.getByRole("tab", { name: new RegExp(other.label, "i") }).getAttribute("aria-selected"),
     ).toBe("true");
   });
+
+  it("montre le format attendu quand le fichier est refusé", async () => {
+    const { container } = render(<Dashboard />);
+
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    const file = new File(["ceci n'est pas du json"], "notes.txt", {
+      type: "application/json",
+    });
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input!);
+
+    const help = await screen.findByRole("dialog", { name: /format d'import/i });
+
+    expect(within(help).getByRole("alert").textContent).toMatch(/illisible/i);
+    expect(within(help).getByRole("button", { name: /télécharger l'exemple/i })).toBeDefined();
+  });
+
+  it("donne accès au fichier d'exemple avant tout import", () => {
+    render(<Dashboard />);
+
+    fireEvent.click(screen.getByRole("button", { name: /format d'import/i }));
+
+    const help = screen.getByRole("dialog", { name: /format d'import/i });
+    expect(within(help).queryByRole("alert")).toBeNull();
+    expect(within(help).getByText(/exemple-developpe-couche/)).toBeDefined();
+  });
 });

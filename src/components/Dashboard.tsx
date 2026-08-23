@@ -9,6 +9,7 @@ import {
   type ImportMode,
   type ImportPreview,
 } from "@/components/ImportDialog";
+import { ImportHelpSheet } from "@/components/ImportHelpSheet";
 import { LibraryView } from "@/components/LibraryView";
 import { ProgramsSheet } from "@/components/ProgramsSheet";
 import { SessionView } from "@/components/SessionView";
@@ -42,6 +43,7 @@ export function Dashboard() {
   const [celebration, setCelebration] = useState<CelebrationPayload | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [pendingImport, setPendingImport] = useState<ImportPreview | null>(null);
+  const [importHelp, setImportHelp] = useState<{ error: string | null } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selected: Exercise | null =
@@ -62,7 +64,8 @@ export function Dashboard() {
     try {
       setPendingImport({ fileName: file.name, snapshot: parseSnapshot(await file.text()) });
     } catch (error) {
-      flash(error instanceof Error ? error.message : "Import impossible");
+      // Un fichier refusé sans explication est une impasse : on montre le format attendu.
+      setImportHelp({ error: error instanceof Error ? error.message : "Import impossible" });
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -116,6 +119,15 @@ export function Dashboard() {
             className="rounded-pill border border-line px-3 py-2 text-xs font-semibold text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
           >
             Importer
+          </button>
+          <button
+            type="button"
+            onClick={() => setImportHelp({ error: null })}
+            aria-label="Format d'import et fichier d'exemple"
+            title="Format d'import et fichier d'exemple"
+            className="flex size-8 items-center justify-center rounded-pill border border-line text-xs font-bold text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
+          >
+            ?
           </button>
           <input
             ref={fileInputRef}
@@ -203,6 +215,16 @@ export function Dashboard() {
         open={managingPrograms}
         onClose={() => setManagingPrograms(false)}
         onDeleted={(message) => flash(message, "Annuler")}
+      />
+
+      <ImportHelpSheet
+        open={importHelp !== null}
+        error={importHelp?.error ?? null}
+        onClose={() => setImportHelp(null)}
+        onPickFile={() => {
+          setImportHelp(null);
+          fileInputRef.current?.click();
+        }}
       />
 
       <ImportDialog
