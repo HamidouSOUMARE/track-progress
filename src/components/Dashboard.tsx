@@ -208,6 +208,7 @@ export function Dashboard() {
       <ImportDialog
         preview={pendingImport}
         currentExercises={exercises}
+        currentPrograms={programs}
         onCancel={() => setPendingImport(null)}
         onConfirm={handleImport}
       />

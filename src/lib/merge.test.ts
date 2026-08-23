@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { emptyWeek } from "@/data/weekdays";
 import { mergeSnapshots } from "@/lib/merge";
 import type { Exercise, LogEntry, Tracking } from "@/lib/types";
 import type { TrackerSnapshot } from "@/store/tracker-store";
@@ -101,5 +102,36 @@ describe("mergeSnapshots", () => {
 
     expect(merged.trackings["developpe-couche"]?.reference).toBe(80);
     expect(merged.trackings["developpe-couche"]?.entries).toHaveLength(1);
+  });
+
+  it("ajoute les programmes du fichier sans supprimer les miens", () => {
+    const mine = { id: "ppl", name: "PPL", days: emptyWeek() };
+    const theirs = { id: "fullbody", name: "Full body", days: emptyWeek() };
+
+    const merged = mergeSnapshots(snapshot({ programs: [mine] }), snapshot({ programs: [theirs] }));
+
+    expect(merged.programs.map((program) => program.id)).toEqual(["ppl", "fullbody"]);
+  });
+
+  it("met à jour un programme commun avec la version du fichier", () => {
+    const days = emptyWeek();
+    days.lundi = ["squat"];
+
+    const merged = mergeSnapshots(
+      snapshot({ programs: [{ id: "ppl", name: "PPL", days: emptyWeek() }] }),
+      snapshot({ programs: [{ id: "ppl", name: "PPL v2", days }] }),
+    );
+
+    expect(merged.programs[0]?.name).toBe("PPL v2");
+    expect(merged.programs[0]?.days.lundi).toEqual(["squat"]);
+  });
+
+  it("ne change pas le programme suivi localement", () => {
+    const merged = mergeSnapshots(
+      snapshot({ activeProgramId: "ppl" }),
+      snapshot({ activeProgramId: "fullbody" }),
+    );
+
+    expect(merged.activeProgramId).toBe("ppl");
   });
 });
