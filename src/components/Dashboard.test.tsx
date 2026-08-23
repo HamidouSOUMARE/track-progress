@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { Dashboard } from "@/components/Dashboard";
 import { buildDefaultExercises } from "@/data/exercise-catalog";
-import { WEEKDAYS, todayWeekday } from "@/data/weekdays";
+import { WEEKDAYS, emptyWeek, todayStamp, todayWeekday } from "@/data/weekdays";
 import { useTrackerStore } from "@/store/tracker-store";
 
 beforeEach(() => {
@@ -271,5 +271,82 @@ describe("parcours de suivi", () => {
     const help = screen.getByRole("dialog", { name: /format d'import/i });
     expect(within(help).queryByRole("alert")).toBeNull();
     expect(within(help).getByText(/exemple-developpe-couche/)).toBeDefined();
+  });
+
+  it("affiche une séance dont les exercices viennent d'un fichier importé", () => {
+    // Groupes plus fins que ceux de l'app : le rendu ne doit pas tomber.
+    const days = emptyWeek();
+    days[todayWeekday()] = ["curl-incline", "squat-importe"];
+
+    useTrackerStore.setState({
+      exercises: [
+        {
+          id: "curl-incline",
+          name: "Curl incliné",
+          group: "bras",
+          unit: "kg",
+          kind: "charge",
+          goal: "up",
+          custom: true,
+        },
+        {
+          id: "squat-importe",
+          name: "Hack squat",
+          group: "autres",
+          unit: "kg",
+          kind: "charge",
+          goal: "up",
+          custom: true,
+        },
+      ],
+      trackings: {},
+      programs: [{ id: "p", name: "Recomposition", days }],
+      activeProgramId: "p",
+      selectedDay: { day: todayWeekday(), date: todayStamp() },
+      lastDeletion: null,
+    });
+
+    render(<Dashboard />);
+
+    expect(screen.getByRole("button", { name: /curl incliné/i })).toBeDefined();
+    expect(screen.getByRole("button", { name: /hack squat/i })).toBeDefined();
+  });
+
+  it("annonce les groupes rattachés avant de valider l'import", async () => {
+    const { container } = render(<Dashboard />);
+
+    const backup = JSON.stringify({
+      version: 3,
+      exercises: [
+        {
+          id: "curl-incline",
+          name: "Curl incliné",
+          group: "biceps",
+          unit: "kg",
+          kind: "charge",
+          goal: "up",
+          custom: true,
+        },
+      ],
+      trackings: {},
+      programs: [],
+      activeProgramId: null,
+    });
+
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    const file = new File([backup], "programme.json", { type: "application/json" });
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input!);
+
+    const dialog = await screen.findByRole("dialog", { name: /importer une sauvegarde/i });
+    expect(dialog.textContent).toMatch(/biceps/);
+
+    fireEvent.click(within(dialog).getByRole("radio", { name: /fusionner/i }));
+    fireEvent.click(within(dialog).getByRole("button", { name: /^importer$/i }));
+
+    const imported = useTrackerStore
+      .getState()
+      .exercises.find((item) => item.id === "curl-incline");
+    expect(imported?.group).toBe("bras");
   });
 });

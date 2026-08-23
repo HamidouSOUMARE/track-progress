@@ -10,6 +10,8 @@ export type ImportMode = "merge" | "replace";
 export interface ImportPreview {
   fileName: string;
   snapshot: TrackerSnapshot;
+  /** Groupes du fichier rattachés à ceux de l'app, signalés avant validation. */
+  remappedGroups: string[];
 }
 
 interface ImportDialogProps {
@@ -100,6 +102,17 @@ export function ImportDialog({
         </span>
         . Tu as {describe(currentExercises.length, currentPrograms.length)}.
       </p>
+
+      {shown.remappedGroups.length > 0 ? (
+        <p className="mt-3 rounded-card border border-line bg-surface-raised px-4 py-2.5 text-xs text-ink-muted">
+          <span className="font-semibold text-ink">
+            {shown.remappedGroups.join(", ")}
+          </span>{" "}
+          {shown.remappedGroups.length > 1 ? "ne sont pas des groupes" : "n'est pas un groupe"} de
+          l&apos;app : {shown.remappedGroups.length > 1 ? "ces exercices seront rattachés" : "cet exercice sera rattaché"}{" "}
+          aux groupes existants (biceps et triceps vers Bras, quadriceps et mollets vers Jambes…).
+        </p>
+      ) : null}
 
       <div role="radiogroup" aria-label="Mode d'import" className="mt-5 flex flex-col gap-2">
         {options.map((option) => {

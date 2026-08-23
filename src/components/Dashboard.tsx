@@ -15,7 +15,7 @@ import { ProgramsSheet } from "@/components/ProgramsSheet";
 import { SessionView } from "@/components/SessionView";
 import { Toast, type ToastMessage } from "@/components/Toast";
 import { UpdateSheet } from "@/components/UpdateSheet";
-import { downloadSnapshot, parseSnapshot } from "@/lib/backup";
+import { downloadSnapshot, readSnapshot } from "@/lib/backup";
 import { useHydrated, useTrackerStore } from "@/store/tracker-store";
 import type { Exercise } from "@/lib/types";
 
@@ -62,7 +62,8 @@ export function Dashboard() {
   /** On lit le fichier, puis on laisse l'utilisateur choisir : fusionner ou remplacer. */
   const handleFile = async (file: File) => {
     try {
-      setPendingImport({ fileName: file.name, snapshot: parseSnapshot(await file.text()) });
+      const report = readSnapshot(await file.text());
+      setPendingImport({ fileName: file.name, ...report });
     } catch (error) {
       // Un fichier refusé sans explication est une impasse : on montre le format attendu.
       setImportHelp({ error: error instanceof Error ? error.message : "Import impossible" });
