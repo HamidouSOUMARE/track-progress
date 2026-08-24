@@ -480,4 +480,19 @@ describe("parcours de suivi", () => {
 
     expect(useTrackerStore.getState().trackings.squat?.reference).toBe(90);
   });
+
+  it("garde les flèches pour réordonner sans glisser", () => {
+    const program = useTrackerStore.getState().createProgram("PPL");
+    const today = todayWeekday();
+    useTrackerStore.getState().toggleExerciseInDay(program.id, today, "squat");
+    useTrackerStore.getState().toggleExerciseInDay(program.id, today, "leg-curl");
+    useTrackerStore.getState().selectDay(today);
+
+    render(<Dashboard />);
+
+    fireEvent.click(screen.getByRole("button", { name: /modifier la séance/i }));
+    fireEvent.click(screen.getByRole("button", { name: /monter leg curl/i }));
+
+    expect(useTrackerStore.getState().programs[0]?.days[today]).toEqual(["leg-curl", "squat"]);
+  });
 });

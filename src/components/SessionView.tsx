@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { Reorder } from "motion/react";
 import { ExerciseCard } from "@/components/ExerciseCard";
 import { ExercisePickerSheet } from "@/components/ExercisePickerSheet";
+import { PlannedExerciseRow } from "@/components/PlannedExerciseRow";
 import { WeekStrip } from "@/components/WeekStrip";
 import { WEEKDAYS, resolveSelectedDay, todayWeekday } from "@/data/weekdays";
 import { useTrackerStore } from "@/store/tracker-store";
@@ -21,6 +22,7 @@ export function SessionView({ onOpenExercise, onManagePrograms }: SessionViewPro
   const activeProgramId = useTrackerStore((state) => state.activeProgramId);
   const toggleExerciseInDay = useTrackerStore((state) => state.toggleExerciseInDay);
   const moveExerciseInDay = useTrackerStore((state) => state.moveExerciseInDay);
+  const reorderDay = useTrackerStore((state) => state.reorderDay);
   const selectedDay = useTrackerStore((state) => state.selectedDay);
   const selectDay = useTrackerStore((state) => state.selectDay);
 
@@ -118,54 +120,31 @@ export function SessionView({ onOpenExercise, onManagePrograms }: SessionViewPro
           </button>
         </div>
       ) : editing ? (
-        <ul className="flex flex-col gap-2">
-          <AnimatePresence initial={false}>
+        <div className="flex flex-col gap-2">
+          <Reorder.Group
+            axis="y"
+            values={planned}
+            onReorder={(next) =>
+              reorderDay(
+                program.id,
+                day,
+                next.map((exercise) => exercise.id),
+              )
+            }
+            className="flex flex-col gap-2"
+          >
             {planned.map((exercise, index) => (
-              <motion.li
+              <PlannedExerciseRow
                 key={exercise.id}
-                layout
-                exit={{ opacity: 0, height: 0 }}
-                className="flex items-center gap-2 rounded-card border border-line bg-surface px-3 py-2.5"
-              >
-                <span className="tabular w-5 shrink-0 text-xs font-bold text-ink-faint">
-                  {index + 1}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
-                  {exercise.name}
-                  {exercise.archived ? (
-                    <span className="ml-2 text-xs font-normal text-ink-faint">masqué</span>
-                  ) : null}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() => moveExerciseInDay(program.id, day, exercise.id, -1)}
-                  disabled={index === 0}
-                  aria-label={`Monter ${exercise.name}`}
-                  className="flex size-8 items-center justify-center rounded-pill text-ink-faint transition-colors hover:bg-surface-hover hover:text-ink disabled:opacity-30"
-                >
-                  <span aria-hidden="true">↑</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveExerciseInDay(program.id, day, exercise.id, 1)}
-                  disabled={index === planned.length - 1}
-                  aria-label={`Descendre ${exercise.name}`}
-                  className="flex size-8 items-center justify-center rounded-pill text-ink-faint transition-colors hover:bg-surface-hover hover:text-ink disabled:opacity-30"
-                >
-                  <span aria-hidden="true">↓</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleExerciseInDay(program.id, day, exercise.id)}
-                  aria-label={`Retirer ${exercise.name} du ${weekday.label.toLowerCase()}`}
-                  className="flex size-8 items-center justify-center rounded-pill text-ink-faint transition-colors hover:bg-surface-hover hover:text-negative"
-                >
-                  <span aria-hidden="true">×</span>
-                </button>
-              </motion.li>
+                exercise={exercise}
+                position={index + 1}
+                total={planned.length}
+                dayLabel={weekday.label}
+                onMove={(offset) => moveExerciseInDay(program.id, day, exercise.id, offset)}
+                onRemove={() => toggleExerciseInDay(program.id, day, exercise.id)}
+              />
             ))}
-          </AnimatePresence>
+          </Reorder.Group>
 
           <button
             type="button"
@@ -174,7 +153,11 @@ export function SessionView({ onOpenExercise, onManagePrograms }: SessionViewPro
           >
             + Ajouter des exercices
           </button>
-        </ul>
+
+          <p className="text-center text-xs text-ink-faint">
+            Glisse par la poignée pour changer l&apos;ordre de la séance.
+          </p>
+        </div>
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
