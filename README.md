@@ -24,6 +24,7 @@ l'app le fait savoir.
 - **Mensurations** dans le même écran : tour de taille, tour de bras, poids de corps…
   chaque mesure porte le sens de son objectif (↑ gagner du bras, ↓ perdre du tour de
   taille), qui pilote la couleur, la détection de record et le message d'encouragement.
+- **Bouton retour du téléphone** : il referme la feuille ouverte au lieu de quitter l'app.
 - **Mise à jour en deux gestes** : incréments rapides (+1,25 / +2,5 / +5 kg), répétitions
   et séries optionnelles.
 - **Animation de célébration** quand une charge progresse, avec badge « record personnel ».

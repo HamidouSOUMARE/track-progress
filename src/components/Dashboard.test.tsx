@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitForElementToBeRemoved,
+  within,
+} from "@testing-library/react";
 import { Dashboard } from "@/components/Dashboard";
 import { buildDefaultExercises } from "@/data/exercise-catalog";
 import { WEEKDAYS, emptyWeek, todayStamp, todayWeekday } from "@/data/weekdays";
@@ -386,5 +393,91 @@ describe("parcours de suivi", () => {
     expect(useTrackerStore.getState().exercises.find((i) => i.id === "tractions")?.goal).toBe(
       "down",
     );
+  });
+
+  it("met à jour la valeur affichée quand on change la référence", () => {
+    render(<Dashboard />);
+
+    const dialog = openExercise("Squat");
+    fireEvent.change(within(dialog).getByLabelText(/charge en kg/i), { target: { value: "100" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: /définir ma référence/i }));
+
+    const sheet = openExercise("Squat");
+    fireEvent.click(within(sheet).getByRole("button", { name: /modifier la référence/i }));
+    const field = within(sheet).getByLabelText(/nouvelle référence/i);
+    fireEvent.change(field, { target: { value: "120" } });
+    fireEvent.click(within(sheet).getByRole("button", { name: /valider/i }));
+
+    // Sans performance enregistrée, la valeur actuelle suit la référence.
+    expect((within(sheet).getByLabelText(/charge en kg/i) as HTMLInputElement).value).toBe("120");
+    expect(useTrackerStore.getState().trackings.squat?.reference).toBe(120);
+  });
+
+  it("revient à la dernière performance quand on en supprime une", () => {
+    render(<Dashboard />);
+
+    const dialog = openExercise("Squat");
+    fireEvent.change(within(dialog).getByLabelText(/charge en kg/i), { target: { value: "100" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: /définir ma référence/i }));
+
+    const update = openExercise("Squat");
+    fireEvent.change(within(update).getByLabelText(/charge en kg/i), { target: { value: "110" } });
+    fireEvent.click(within(update).getByRole("button", { name: /enregistrer la performance/i }));
+
+    const sheet = openExercise("Squat");
+    expect((within(sheet).getByLabelText(/charge en kg/i) as HTMLInputElement).value).toBe("110");
+
+    fireEvent.click(within(sheet).getByRole("button", { name: /supprimer la performance/i }));
+
+    expect((within(sheet).getByLabelText(/charge en kg/i) as HTMLInputElement).value).toBe("100");
+  });
+
+  it("referme la feuille au retour du téléphone plutôt que de quitter l'app", async () => {
+    render(<Dashboard />);
+
+    openExercise("Squat");
+    expect(screen.queryByRole("dialog", { name: "Squat" })).not.toBeNull();
+
+    // Geste « retour » d'Android : le navigateur dépile puis émet popstate.
+    window.dispatchEvent(new PopStateEvent("popstate"));
+
+    await waitForElementToBeRemoved(() => screen.queryByRole("dialog", { name: "Squat" }));
+  });
+
+  it("empile une entrée d'historique par feuille ouverte", () => {
+    const before = window.history.length;
+    render(<Dashboard />);
+
+    openExercise("Squat");
+
+    expect(window.history.length).toBeGreaterThan(before);
+  });
+
+  it("laisse ouverte la fiche du suivi qu'on vient de créer", async () => {
+    render(<Dashboard />);
+
+    fireEvent.click(screen.getByRole("button", { name: /\+ suivi/i }));
+    const add = screen.getByRole("dialog", { name: /ajouter un suivi/i });
+    fireEvent.change(within(add).getByLabelText(/^nom$/i), { target: { value: "Rowing T-bar" } });
+    fireEvent.click(within(add).getByRole("button", { name: /créer l'exercice/i }));
+
+    // La feuille de création se referme, celle du nouveau suivi doit rester.
+    const sheet = await screen.findByRole("dialog", { name: "Rowing T-bar" });
+    expect(sheet).toBeDefined();
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(screen.queryByRole("dialog", { name: "Rowing T-bar" })).not.toBeNull();
+  });
+
+  it("valide la saisie à la touche Entrée", () => {
+    render(<Dashboard />);
+
+    const dialog = openExercise("Squat");
+    const field = within(dialog).getByLabelText(/charge en kg/i);
+    fireEvent.change(field, { target: { value: "90" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+
+    expect(useTrackerStore.getState().trackings.squat?.reference).toBe(90);
   });
 });
