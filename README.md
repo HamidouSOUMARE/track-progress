@@ -38,7 +38,9 @@ l'app le fait savoir.
 - **Suivis personnalisés** mesurés en kilos, répétitions, secondes ou centimètres.
 - **Statistiques globales** : kilos gagnés, suivis en progression, records battus.
 - **Programmes** : autant que nécessaire (PPL, full body, saison…), chacun avec ses
-  exercices placés sur les jours de la semaine, réordonnables. Un seul est « suivi » à la
+  exercices placés sur les jours de la semaine. L'ordre de la séance se change au
+  glisser-déposer par une poignée, ou aux flèches — qui restent le chemin accessible
+  au clavier et au lecteur d'écran. Un seul est « suivi » à la
   fois et alimente la vue Séance.
 - **Masquer ou supprimer** : masquer sort un suivi des listes en conservant tout son
   historique — utile pour un exercice mis de côté quelques mois ; supprimer efface pour
