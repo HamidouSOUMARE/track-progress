@@ -239,6 +239,45 @@ describe("programmes", () => {
     expect(store().programs[0]?.days.lundi).toEqual(["squat"]);
   });
 
+  it("réordonne une séance entière après un glisser-déposer", () => {
+    const program = store().createProgram("PPL");
+    store().toggleExerciseInDay(program.id, "lundi", "squat");
+    store().toggleExerciseInDay(program.id, "lundi", "presse-a-cuisses");
+    store().toggleExerciseInDay(program.id, "lundi", "leg-curl");
+
+    store().reorderDay(program.id, "lundi", ["leg-curl", "squat", "presse-a-cuisses"]);
+
+    expect(store().programs[0]?.days.lundi).toEqual([
+      "leg-curl",
+      "squat",
+      "presse-a-cuisses",
+    ]);
+  });
+
+  it("conserve à la suite les exercices absents de la liste réordonnée", () => {
+    const program = store().createProgram("PPL");
+    store().toggleExerciseInDay(program.id, "lundi", "squat");
+    store().toggleExerciseInDay(program.id, "lundi", "fantome-importe");
+    store().toggleExerciseInDay(program.id, "lundi", "leg-curl");
+
+    store().reorderDay(program.id, "lundi", ["leg-curl", "squat"]);
+
+    expect(store().programs[0]?.days.lundi).toEqual([
+      "leg-curl",
+      "squat",
+      "fantome-importe",
+    ]);
+  });
+
+  it("ignore un réordonnancement sur un programme inconnu", () => {
+    const program = store().createProgram("PPL");
+    store().toggleExerciseInDay(program.id, "lundi", "squat");
+
+    store().reorderDay("inexistant", "lundi", ["leg-curl"]);
+
+    expect(store().programs[0]?.days.lundi).toEqual(["squat"]);
+  });
+
   it("bascule sur un autre programme quand le programme suivi est supprimé", () => {
     const first = store().createProgram("PPL");
     const second = store().createProgram("Full body");

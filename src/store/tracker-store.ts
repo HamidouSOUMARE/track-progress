@@ -105,6 +105,7 @@ interface TrackerState extends TrackerSnapshot {
     exerciseId: string,
     offset: number,
   ) => void;
+  reorderDay: (programId: string, day: WeekdayId, orderedIds: string[]) => void;
   logValue: (exerciseId: string, input: LogInput) => LogResult | null;
   removeEntry: (exerciseId: string, entryId: string) => void;
   replaceAll: (snapshot: TrackerSnapshot) => void;
@@ -413,6 +414,26 @@ export const useTrackerStore = create<TrackerState>()(
               : [...ids, exerciseId];
 
             return { ...program, days: { ...program.days, [day]: next } };
+          }),
+        }));
+      },
+
+      /**
+       * Réordonne d'un coup, après un glisser-déposer. Les identifiants absents
+       * de la nouvelle liste — un exercice qu'un fichier importé n'a pas fourni,
+       * donc non affiché — sont conservés à la suite plutôt que perdus.
+       */
+      reorderDay: (programId, day, orderedIds) => {
+        set((state) => ({
+          programs: state.programs.map((program) => {
+            if (program.id !== programId) {
+              return program;
+            }
+
+            const moved = new Set(orderedIds);
+            const untouched = program.days[day].filter((id) => !moved.has(id));
+
+            return { ...program, days: { ...program.days, [day]: [...orderedIds, ...untouched] } };
           }),
         }));
       },
