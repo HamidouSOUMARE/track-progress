@@ -80,6 +80,7 @@ export function UpdateSheet({
   const [editingReference, setEditingReference] = useState(false);
   const [draft, setDraft] = useState<ExerciseDraft | null>(null);
   const [syncedId, setSyncedId] = useState<string | null>(exercise?.id ?? null);
+  const [syncedTracking, setSyncedTracking] = useState<Tracking | undefined>(tracking);
 
   const activeId = exercise?.id ?? null;
   if (activeId !== syncedId) {
@@ -90,6 +91,15 @@ export function UpdateSheet({
       setSets("");
       setEditingReference(false);
       setDraft(null);
+    }
+  }
+
+  // Le suivi a changé sous la fiche ouverte — référence modifiée, entrée
+  // supprimée : le champ doit afficher la valeur actuelle, pas l'ancienne.
+  if (activeTracking !== syncedTracking) {
+    setSyncedTracking(activeTracking);
+    if (activeTracking) {
+      setAmount(toAmountInput(computeProgress(activeTracking, goal).current));
     }
   }
 
@@ -283,6 +293,16 @@ export function UpdateSheet({
             autoComplete="off"
             value={amount}
             onChange={(event) => setAmount(sanitizeAmount(event.target.value))}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && value > 0) {
+                event.preventDefault();
+                if (progress) {
+                  handleSave();
+                } else {
+                  handleStart();
+                }
+              }
+            }}
             placeholder="0"
             className="tabular w-full min-w-0 bg-transparent text-center text-5xl font-black text-ink outline-none placeholder:text-ink-faint"
           />
@@ -419,7 +439,14 @@ export function UpdateSheet({
                 inputMode="decimal"
                 autoComplete="off"
                 value={referenceDraft}
+                aria-label="Nouvelle référence"
                 onChange={(event) => setReferenceDraft(sanitizeAmount(event.target.value))}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    handleReferenceSave();
+                  }
+                }}
                 className="tabular w-full rounded-card border border-line bg-surface-raised px-3 py-2 text-base text-ink outline-none"
               />
               <button
