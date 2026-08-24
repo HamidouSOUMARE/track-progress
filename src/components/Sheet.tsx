@@ -10,6 +10,14 @@ interface SheetProps {
   children: React.ReactNode;
 }
 
+/**
+ * Instant du dernier retour déclenché par l'app elle-même. Un retour programmé
+ * ne doit pas être confondu avec le geste de l'utilisateur, mais le repère
+ * expire : sinon un retour sans effet bloquerait le geste suivant.
+ */
+let lastProgrammaticBack = 0;
+const PROGRAMMATIC_BACK_WINDOW_MS = 100;
+
 /** Feuille modale : ancrée en bas sur mobile, centrée sur grand écran. */
 export function Sheet({ open, title, onClose, children }: SheetProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -21,6 +29,43 @@ export function Sheet({ open, title, onClose, children }: SheetProps) {
   useEffect(() => {
     closeRef.current = onClose;
   });
+
+  /**
+   * Le bouton retour du téléphone doit refermer la feuille, pas quitter l'app :
+   * on empile une entrée d'historique à l'ouverture et on la retire à la
+   * fermeture, d'où qu'elle vienne.
+   */
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    let closedByBack = false;
+    // Une feuille qui s'ouvre rend caduc tout retour programmé en attente.
+    lastProgrammaticBack = 0;
+    window.history.pushState({ sheet: true }, "");
+
+    const onPopState = () => {
+      if (Date.now() - lastProgrammaticBack < PROGRAMMATIC_BACK_WINDOW_MS) {
+        lastProgrammaticBack = 0;
+        return;
+      }
+
+      closedByBack = true;
+      closeRef.current();
+    };
+
+    window.addEventListener("popstate", onPopState);
+
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+
+      if (!closedByBack) {
+        lastProgrammaticBack = Date.now();
+        window.history.back();
+      }
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
