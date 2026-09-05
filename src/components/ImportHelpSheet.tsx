@@ -50,11 +50,20 @@ export function ImportHelpSheet({ open, error, onClose, onPickFile }: ImportHelp
         <li>
           <strong className="text-ink-muted">reference</strong> est le point de départ,{" "}
           <strong className="text-ink-muted">entries</strong> l&apos;historique qui s&apos;y
-          compare.
+          compare. <strong className="text-ink-muted">value</strong> y porte la charge la plus
+          lourde de la séance, et <strong className="text-ink-muted">series</strong> le détail
+          série par série.
         </li>
         <li>
           <strong className="text-ink-muted">goal</strong> vaut <code>up</code> ou{" "}
           <code>down</code> selon le sens du progrès.
+        </li>
+        <li>
+          <strong className="text-ink-muted">rest</strong> (secondes),{" "}
+          <strong className="text-ink-muted">targetSets</strong> et{" "}
+          <strong className="text-ink-muted">targetRepsMin</strong> /{" "}
+          <strong className="text-ink-muted">targetRepsMax</strong> pilotent le chrono et les
+          séries. Tous facultatifs.
         </li>
         <li>
           <strong className="text-ink-muted">days</strong> range les identifiants d&apos;exercices
