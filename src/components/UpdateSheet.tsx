@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ExerciseFields, type ExerciseDraft } from "@/components/ExerciseFields";
+import { Collapsible } from "@/components/Collapsible";
 import { SeriesPanel } from "@/components/SeriesPanel";
 import { Sheet } from "@/components/Sheet";
 import { DeltaBadge } from "@/components/DeltaBadge";
@@ -35,8 +36,10 @@ interface UpdateSheetProps {
   onCelebrate: (payload: CelebrationPayload) => void;
   /** Remonte une action réversible pour que le tableau de bord propose de l'annuler. */
   onUndoable: (message: string) => void;
-  /** Lance le repos une fois la performance enregistrée. */
+  /** Lance le repos une fois la série enregistrée. */
   onRestStart: (exercise: Exercise) => void;
+  /** Coupe le repos : l'exercice est terminé, on passe au suivant. */
+  onRestStop: () => void;
 }
 
 interface Opened {
@@ -61,6 +64,7 @@ export function UpdateSheet({
   onCelebrate,
   onUndoable,
   onRestStart,
+  onRestStop,
 }: UpdateSheetProps) {
   const startTracking = useTrackerStore((state) => state.startTracking);
   const updateReference = useTrackerStore((state) => state.updateReference);
@@ -99,6 +103,8 @@ export function UpdateSheet({
   const [referenceDraft, setReferenceDraft] = useState<string>("");
   const [editingReference, setEditingReference] = useState(false);
   const [draft, setDraft] = useState<ExerciseDraft | null>(null);
+  // Un seul panneau ouvert à la fois : la fiche reste lisible d'un coup d'œil.
+  const [openPanel, setOpenPanel] = useState<"notes" | "historique" | null>(null);
   const [syncedId, setSyncedId] = useState<string | null>(exercise?.id ?? null);
   const [syncedTracking, setSyncedTracking] = useState<Tracking | undefined>(tracking);
 
@@ -120,6 +126,7 @@ export function UpdateSheet({
       );
       setEditingReference(false);
       setDraft(null);
+      setOpenPanel(null);
     }
   }
 
@@ -203,14 +210,18 @@ export function UpdateSheet({
     }
 
     vibrate([10]);
-    onRestStart(active);
 
     if (result.reachedTarget) {
+      // Dernière série : la célébration prend la place du repos.
       handleFinish();
+      return;
     }
+
+    onRestStart(active);
   };
 
   const handleFinish = () => {
+    onRestStop();
     const result = finishExercise(active.id);
     if (!result) {
       onClose();
@@ -313,29 +324,53 @@ export function UpdateSheet({
               Enregistrer
             </button>
           </div>
+
+          <div className="flex flex-col gap-2 border-t border-line pt-4">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setArchived(active.id, active.archived !== true);
+                  onClose();
+                  onUndoable(active.archived ? `${active.name} réaffiché` : `${active.name} masqué`);
+                }}
+                className="flex-1 rounded-card border border-line py-2.5 text-sm font-semibold text-ink-muted transition-colors hover:border-accent/40 hover:text-accent"
+              >
+                {active.archived ? "Réafficher" : "Masquer"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  removeExercise(active.id);
+                  onClose();
+                  onUndoable(`${active.name} supprimé`);
+                }}
+                className="flex-1 rounded-card border border-line py-2.5 text-sm font-semibold text-ink-faint transition-colors hover:border-negative/40 hover:text-negative"
+              >
+                Supprimer
+              </button>
+            </div>
+            <p className="text-center text-xs text-ink-faint">
+              Masquer conserve l&apos;historique. Supprimer l&apos;efface définitivement.
+            </p>
+          </div>
         </section>
       ) : null}
 
       {progress ? (
-        <dl className="mb-5 grid grid-cols-3 gap-2 rounded-card border border-line bg-surface-raised p-3 text-center">
-          <div>
-            <dt className="text-xs text-ink-faint">Référence</dt>
-            <dd className="tabular text-sm font-bold text-ink">
+        <dl className="mb-5 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs text-ink-faint">
+          <span className="flex items-baseline gap-1.5">
+            <dt>Référence</dt>
+            <dd className="tabular font-semibold text-ink-muted">
               {formatWithUnit(progress.reference, active.unit)}
             </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink-faint">Actuel</dt>
-            <dd className="tabular text-sm font-bold text-ink">
-              {formatWithUnit(progress.current, active.unit)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink-faint">{isMeasure ? "Meilleur" : "Record"}</dt>
-            <dd className="tabular text-sm font-bold text-accent">
+          </span>
+          <span className="flex items-baseline gap-1.5">
+            <dt>{isMeasure ? "Meilleur" : "Record"}</dt>
+            <dd className="tabular font-semibold text-accent">
               {formatWithUnit(progress.best, active.unit)}
             </dd>
-          </div>
+          </span>
         </dl>
       ) : (
         <p className="mb-5 rounded-card border border-line bg-surface-raised p-3 text-sm text-ink-muted">
@@ -462,15 +497,14 @@ export function UpdateSheet({
         />
       )}
 
-      <section className="mt-6">
-        <label
-          htmlFor={`note-${active.id}`}
-          className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink"
-        >
+      <Collapsible
+        title="Notes"
+        summary={active.note ?? (isMeasure ? "Conditions de mesure" : "Réglages, technique")}
+        open={openPanel === "notes"}
+        onToggle={() => setOpenPanel(openPanel === "notes" ? null : "notes")}
+      >
+        <label htmlFor={`note-${active.id}`} className="sr-only">
           Notes
-          <span className="text-xs font-normal text-ink-faint">
-            {isMeasure ? "conditions de mesure" : "réglages, technique"}
-          </span>
         </label>
         <textarea
           id={`note-${active.id}`}
@@ -484,12 +518,20 @@ export function UpdateSheet({
           }
           className="w-full resize-y rounded-card border border-line bg-surface-raised px-3 py-2.5 text-sm leading-relaxed text-ink outline-none placeholder:text-ink-faint"
         />
-      </section>
+      </Collapsible>
 
       {progress ? (
-        <section className="mt-6">
-          <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-ink">Historique</h3>
+        <Collapsible
+          title="Historique"
+          summary={
+            history.length === 0
+              ? "Aucune séance enregistrée"
+              : `${history.length} séance${history.length > 1 ? "s" : ""}`
+          }
+          open={openPanel === "historique"}
+          onToggle={() => setOpenPanel(openPanel === "historique" ? null : "historique")}
+        >
+          <div className="mb-2 flex justify-end">
             <button
               type="button"
               onClick={() => {
@@ -573,38 +615,9 @@ export function UpdateSheet({
               ))}
             </ul>
           )}
-        </section>
+        </Collapsible>
       ) : null}
 
-      <div className="mt-6 flex gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            setArchived(active.id, active.archived !== true);
-            onClose();
-            onUndoable(
-              active.archived ? `${active.name} réaffiché` : `${active.name} masqué`,
-            );
-          }}
-          className="flex-1 rounded-card border border-line py-2.5 text-sm font-semibold text-ink-muted transition-colors hover:border-accent/40 hover:text-accent"
-        >
-          {active.archived ? "Réafficher" : "Masquer"}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            removeExercise(active.id);
-            onClose();
-            onUndoable(`${active.name} supprimé`);
-          }}
-          className="flex-1 rounded-card border border-line py-2.5 text-sm font-semibold text-ink-faint transition-colors hover:border-negative/40 hover:text-negative"
-        >
-          Supprimer
-        </button>
-      </div>
-      <p className="mt-2 text-center text-xs text-ink-faint">
-        Masquer conserve l&apos;historique. Supprimer l&apos;efface définitivement.
-      </p>
     </Sheet>
   );
 }
