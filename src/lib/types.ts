@@ -64,9 +64,9 @@ export interface LogEntry {
    * Le tonnage se déduit des séries, il ne remplace pas cette valeur.
    */
   value: number;
-  /** Saisie rapide, sans détail par série. */
-  reps: number | null;
-  sets: number | null;
+  /** Hérités de la saisie rapide, avant le détail par série. */
+  reps?: number | null;
+  sets?: number | null;
   /** Détail série par série, quand la séance a été menée pas à pas. */
   series?: SetLog[];
   /** Faux tant que les séries de l'exercice ne sont pas terminées. */

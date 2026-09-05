@@ -33,13 +33,14 @@ export function entrySeries(entry: LogEntry): SetLog[] {
     return entry.series;
   }
 
-  if (entry.reps === null) {
+  if (typeof entry.reps !== "number") {
     return [];
   }
 
+  const reps = entry.reps;
   return Array.from({ length: Math.max(1, entry.sets ?? 1) }, () => ({
     value: entry.value,
-    reps: entry.reps as number,
+    reps,
   }));
 }
 
