@@ -230,6 +230,7 @@ export function Dashboard() {
         onCelebrate={setCelebration}
         onUndoable={(message) => flash(message, "Annuler")}
         onRestStart={startRest}
+        onRestStop={() => setRest(null)}
       />
 
       <AddExerciseDialog
@@ -276,7 +277,6 @@ export function Dashboard() {
       />
 
       <Toast
-        raised={rest !== null}
         toast={toast}
         onAction={() => {
           undoDelete();

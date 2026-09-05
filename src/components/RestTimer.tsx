@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { formatCountdown } from "@/lib/session";
 
 export interface RestPeriod {
@@ -19,13 +19,19 @@ interface RestTimerProps {
   onDismiss: () => void;
 }
 
-const TICK_MS = 250;
+const TICK_MS = 200;
+const RADIUS = 104;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+/** Délai avant de rendre l'écran, une fois le repos écoulé. */
+const LINGER_MS = 4000;
 
 /**
- * Décompte adossé à un instant de fin plutôt qu'à un compteur décrémenté :
- * l'écran peut s'éteindre ou l'onglet passer en arrière-plan sans dériver.
+ * Plein écran : les chiffres restent lisibles téléphone posé sur le banc. Le
+ * décompte s'adosse à un instant de fin, pas à un compteur décrémenté, pour ne
+ * pas dériver quand l'écran s'éteint.
  */
 export function RestTimer({ rest, onExtend, onDismiss }: RestTimerProps) {
+  const reduceMotion = useReducedMotion();
   const [now, setNow] = useState(() => Date.now());
   const buzzedRef = useRef<number | null>(null);
 
@@ -52,6 +58,16 @@ export function RestTimer({ rest, onExtend, onDismiss }: RestTimerProps) {
     }
   }, [rest, over]);
 
+  // Une fois le repos écoulé, l'écran se retire seul : on veut la série suivante.
+  useEffect(() => {
+    if (!rest || !over) {
+      return;
+    }
+
+    const id = window.setTimeout(onDismiss, LINGER_MS);
+    return () => window.clearTimeout(id);
+  }, [rest, over, onDismiss]);
+
   const ratio = rest ? Math.max(0, Math.min(1, remaining / rest.seconds)) : 0;
 
   return (
@@ -60,52 +76,97 @@ export function RestTimer({ rest, onExtend, onDismiss }: RestTimerProps) {
         <motion.div
           role="timer"
           aria-live="off"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 16 }}
-          transition={{ type: "spring", stiffness: 420, damping: 34 }}
-          className="fixed inset-x-4 bottom-4 z-55 mx-auto max-w-sm overflow-hidden rounded-card border border-line bg-surface-raised shadow-lift"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-70 flex flex-col items-center justify-center gap-8 bg-base/95 px-6 backdrop-blur-md"
         >
-          <div className="flex items-center gap-3 px-4 py-3">
-            <span
-              className={`tabular text-2xl leading-none font-black ${
-                over ? "text-accent" : "text-ink"
-              }`}
-            >
-              {formatCountdown(remaining)}
-            </span>
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background: over
+                ? "radial-gradient(60% 40% at 50% 45%, var(--color-accent-soft), transparent 70%)"
+                : "radial-gradient(60% 40% at 50% 45%, #1b2230, transparent 70%)",
+            }}
+          />
 
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="text-xs font-semibold text-ink-muted">
+          <div className="relative flex flex-col items-center">
+            <motion.svg
+              viewBox="0 0 240 240"
+              className="size-64 sm:size-72"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 260, damping: 26 }}
+            >
+              <circle
+                cx="120"
+                cy="120"
+                r={RADIUS}
+                fill="none"
+                stroke="var(--color-line)"
+                strokeWidth="8"
+              />
+              <circle
+                cx="120"
+                cy="120"
+                r={RADIUS}
+                fill="none"
+                stroke="var(--color-accent)"
+                strokeWidth="8"
+                strokeLinecap="round"
+                strokeDasharray={CIRCUMFERENCE}
+                strokeDashoffset={CIRCUMFERENCE * (1 - ratio)}
+                transform="rotate(-90 120 120)"
+                style={{ transition: `stroke-dashoffset ${TICK_MS}ms linear` }}
+              />
+            </motion.svg>
+
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+              <motion.span
+                key={over ? "done" : "running"}
+                initial={{ scale: over && !reduceMotion ? 0.6 : 1, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 320, damping: 18 }}
+                className={`tabular text-6xl leading-none font-black ${
+                  over ? "text-accent" : "text-ink"
+                }`}
+              >
+                {over ? "À toi" : formatCountdown(remaining)}
+              </motion.span>
+              <span className="text-xs font-medium tracking-[0.2em] text-ink-faint uppercase">
                 {over ? "Repos terminé" : "Repos"}
               </span>
-              <span className="truncate text-xs text-ink-faint">
-                {rest.nextName ? `Ensuite : ${rest.nextName}` : rest.exerciseName}
-              </span>
-            </span>
+            </div>
+          </div>
 
+          <div className="relative flex flex-col items-center gap-1 text-center">
+            {rest.nextName ? (
+              <>
+                <span className="text-xs tracking-wide text-ink-faint uppercase">Ensuite</span>
+                <span className="text-lg font-bold text-ink">{rest.nextName}</span>
+              </>
+            ) : (
+              <span className="text-lg font-bold text-ink">{rest.exerciseName}</span>
+            )}
+          </div>
+
+          <div className="relative flex items-center gap-3">
             <button
               type="button"
               onClick={() => onExtend(30)}
-              className="shrink-0 rounded-pill border border-line px-2.5 py-1.5 text-xs font-semibold text-ink-muted transition-colors hover:text-ink"
+              className="rounded-pill border border-line px-5 py-3 text-sm font-semibold text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
             >
               +30 s
             </button>
             <button
               type="button"
               onClick={onDismiss}
-              aria-label="Arrêter le repos"
-              className="flex size-8 shrink-0 items-center justify-center rounded-pill text-ink-faint transition-colors hover:bg-surface-hover hover:text-ink"
+              className="rounded-pill bg-accent px-6 py-3 text-sm font-bold text-accent-ink transition-transform active:scale-95"
             >
-              <span aria-hidden="true">×</span>
+              {over ? "C'est parti" : "Passer le repos"}
             </button>
-          </div>
-
-          <div aria-hidden="true" className="h-1 bg-line">
-            <motion.div
-              className={over ? "h-full bg-accent" : "h-full bg-ink-faint"}
-              style={{ width: `${ratio * 100}%` }}
-            />
           </div>
         </motion.div>
       ) : null}
