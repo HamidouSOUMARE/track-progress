@@ -11,12 +11,14 @@ export interface ToastMessage {
 
 interface ToastProps {
   toast: ToastMessage | null;
+  /** Remonté quand le minuteur de repos occupe déjà le bas de l'écran. */
+  raised?: boolean;
   onAction: () => void;
   onDismiss: () => void;
 }
 
 /** Barre flottante : elle passe au-dessus des feuilles modales, sans décaler la page. */
-export function Toast({ toast, onAction, onDismiss }: ToastProps) {
+export function Toast({ toast, raised = false, onAction, onDismiss }: ToastProps) {
   return (
     <AnimatePresence>
       {toast ? (
@@ -28,7 +30,9 @@ export function Toast({ toast, onAction, onDismiss }: ToastProps) {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 16 }}
           transition={{ type: "spring", stiffness: 420, damping: 34 }}
-          className="fixed inset-x-4 bottom-4 z-60 mx-auto flex max-w-sm items-center justify-between gap-3 rounded-card border border-line bg-surface-raised px-4 py-3 shadow-lift"
+          className={`fixed inset-x-4 z-60 mx-auto flex max-w-sm items-center justify-between gap-3 rounded-card border border-line bg-surface-raised px-4 py-3 shadow-lift ${
+            raised ? "bottom-24" : "bottom-4"
+          }`}
         >
           <span className="text-sm text-ink">{toast.message}</span>
           {toast.actionLabel ? (
