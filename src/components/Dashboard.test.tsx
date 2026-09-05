@@ -36,6 +36,16 @@ function completeSets(sheet: HTMLElement, reps: number, count = 3, from = 0) {
   }
 }
 
+/** Les sections secondaires sont repliées : on les ouvre avant de les lire. */
+function expandPanel(sheet: HTMLElement, name: RegExp) {
+  fireEvent.click(within(sheet).getByRole("button", { name }));
+}
+
+/** Masquer et Supprimer vivent désormais dans le panneau de modification. */
+function openEditPanel(sheet: HTMLElement) {
+  fireEvent.click(within(sheet).getByRole("button", { name: /^modifier$/i }));
+}
+
 function openExercise(name: string) {
   // Les cartes vivent dans l'onglet bibliothèque ; la séance s'affiche par défaut.
   fireEvent.click(screen.getByRole("tab", { name: /tous les suivis/i }));
@@ -168,6 +178,7 @@ describe("parcours de suivi", () => {
     completeSets(update, 8);
 
     const history = openExercise("Squat");
+    expandPanel(history, /^historique/i);
     fireEvent.click(within(history).getByRole("button", { name: /supprimer la performance/i }));
     expect(useTrackerStore.getState().trackings.squat?.entries).toHaveLength(0);
 
@@ -180,6 +191,7 @@ describe("parcours de suivi", () => {
     render(<Dashboard />);
 
     const dialog = openExercise("Squat");
+    expandPanel(dialog, /^notes/i);
     fireEvent.change(within(dialog).getByLabelText(/notes/i), {
       target: { value: "Barre cran 7, pieds écartés" },
     });
@@ -192,6 +204,7 @@ describe("parcours de suivi", () => {
     render(<Dashboard />);
 
     const dialog = openExercise("Squat");
+    expandPanel(dialog, /^notes/i);
     const field = within(dialog).getByLabelText(/notes/i);
     field.focus();
 
@@ -236,6 +249,7 @@ describe("parcours de suivi", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: /définir ma référence/i }));
 
     const sheet = openExercise("Squat");
+    openEditPanel(sheet);
     fireEvent.click(within(sheet).getByRole("button", { name: /^masquer$/i }));
 
     const squat = useTrackerStore.getState().exercises.find((item) => item.id === "squat");
@@ -417,6 +431,7 @@ describe("parcours de suivi", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: /définir ma référence/i }));
 
     const sheet = openExercise("Squat");
+    expandPanel(sheet, /^historique/i);
     fireEvent.click(within(sheet).getByRole("button", { name: /modifier la référence/i }));
     const field = within(sheet).getByLabelText(/nouvelle référence/i);
     fireEvent.change(field, { target: { value: "120" } });
@@ -441,6 +456,7 @@ describe("parcours de suivi", () => {
     const sheet = openExercise("Squat");
     expect((within(sheet).getByLabelText(/charge en kg/i) as HTMLInputElement).value).toBe("110");
 
+    expandPanel(sheet, /^historique/i);
     fireEvent.click(within(sheet).getByRole("button", { name: /supprimer la performance/i }));
 
     expect((within(sheet).getByLabelText(/charge en kg/i) as HTMLInputElement).value).toBe("100");
@@ -550,7 +566,8 @@ describe("parcours de suivi", () => {
 
     const timer = screen.getByRole("timer");
     expect(timer.textContent).toMatch(/1:3[01]/);
-    expect(timer.textContent).toMatch(/ensuite : leg curl/i);
+    expect(timer.textContent).toMatch(/ensuite/i);
+    expect(timer.textContent).toMatch(/leg curl/i);
   });
 
   it("ne lance pas de repos pour une mensuration", () => {
@@ -657,6 +674,7 @@ describe("parcours de suivi", () => {
     completeSets(sheet, 10);
 
     const again = openExercise("Squat");
+    expandPanel(again, /^historique/i);
     // 3 séries de 10 répétitions à 100 kg.
     expect(again.textContent).toMatch(/3\s000 kg au total/);
   });
@@ -670,5 +688,53 @@ describe("parcours de suivi", () => {
     fireEvent.click(within(sheet).getByRole("button", { name: /^enregistrer$/i }));
 
     expect(useTrackerStore.getState().exercises.find((i) => i.id === "squat")?.targetSets).toBe(4);
+  });
+
+  it("replie l'historique et n'affiche qu'un aperçu des notes", () => {
+    useTrackerStore.getState().startTracking("squat", 100);
+    useTrackerStore.getState().setNote("squat", "Barre cran 7, pieds écartés");
+
+    render(<Dashboard />);
+
+    const sheet = openExercise("Squat");
+
+    // L'aperçu de la note se lit sans ouvrir, le champ n'est pas monté.
+    expect(sheet.textContent).toMatch(/barre cran 7/i);
+    expect(within(sheet).queryByLabelText(/notes/i)).toBeNull();
+
+    // L'historique ne déroule ses entrées qu'à la demande.
+    expect(within(sheet).queryByRole("button", { name: /modifier la référence/i })).toBeNull();
+    expandPanel(sheet, /^historique/i);
+    expect(within(sheet).getByRole("button", { name: /modifier la référence/i })).toBeDefined();
+  });
+
+  it("garde masquer et supprimer hors de la vue courante", () => {
+    render(<Dashboard />);
+
+    const sheet = openExercise("Squat");
+    expect(within(sheet).queryByRole("button", { name: /^masquer$/i })).toBeNull();
+
+    openEditPanel(sheet);
+
+    expect(within(sheet).getByRole("button", { name: /^masquer$/i })).toBeDefined();
+  });
+
+  it("laisse la célébration à la dernière série plutôt que le repos", async () => {
+    planToday("squat");
+    useTrackerStore.getState().startTracking("squat", 100);
+
+    render(<Dashboard />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^squat —/i }));
+    const sheet = screen.getByRole("dialog", { name: "Squat" });
+
+    completeSets(sheet, 8, 2);
+    expect(screen.getByRole("timer")).toBeDefined();
+
+    completeSets(screen.getByRole("dialog", { name: "Squat" }), 8, 1, 2);
+
+    await waitForElementToBeRemoved(() => screen.queryByRole("timer"));
+    // Le message est tiré au sort : on vérifie que la célébration cible bien l'exercice.
+    expect(screen.getByRole("status").textContent).toMatch(/squat/i);
   });
 });
