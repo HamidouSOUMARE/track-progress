@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Reorder } from "motion/react";
+import { Reorder, motion } from "motion/react";
 import { ExerciseCard } from "@/components/ExerciseCard";
 import { ExercisePickerSheet } from "@/components/ExercisePickerSheet";
 import { PlannedExerciseRow } from "@/components/PlannedExerciseRow";
 import { WeekStrip } from "@/components/WeekStrip";
 import { WEEKDAYS, resolveSelectedDay, todayWeekday } from "@/data/weekdays";
+import { countDone, isDoneOn } from "@/lib/session";
 import { useTrackerStore } from "@/store/tracker-store";
 import type { Exercise, WeekdayId } from "@/lib/types";
 
@@ -61,6 +62,14 @@ export function SessionView({ onOpenExercise, onManagePrograms }: SessionViewPro
     .filter((exercise): exercise is Exercise => exercise !== undefined);
   const visible = planned.filter((exercise) => !exercise.archived);
   const hidden = planned.length - visible.length;
+
+  // L'avancement n'a de sens que pour la journée en cours.
+  const now = new Date();
+  const isToday = day === today;
+  const doneCount = isToday ? countDone(visible, trackings, now) : 0;
+  const remaining = isToday
+    ? visible.filter((exercise) => !isDoneOn(trackings[exercise.id], now))
+    : [];
 
   const counts = WEEKDAYS.reduce(
     (acc, item) => ({ ...acc, [item.id]: program.days[item.id].length }),
@@ -160,12 +169,44 @@ export function SessionView({ onOpenExercise, onManagePrograms }: SessionViewPro
         </div>
       ) : (
         <>
+          {isToday && visible.length > 0 ? (
+            <section
+              aria-label="Avancement de la séance"
+              className="flex flex-col gap-2 rounded-card border border-line bg-surface px-4 py-3"
+            >
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-sm font-semibold text-ink">
+                  {doneCount === visible.length ? "Séance terminée" : "Avancement"}
+                </span>
+                <span className="tabular text-sm font-bold text-ink-muted">
+                  {doneCount}/{visible.length}
+                </span>
+              </div>
+
+              <div aria-hidden="true" className="h-1.5 overflow-hidden rounded-pill bg-line">
+                <motion.div
+                  className="h-full rounded-pill bg-accent"
+                  initial={false}
+                  animate={{ width: `${(doneCount / visible.length) * 100}%` }}
+                  transition={{ type: "spring", stiffness: 260, damping: 32 }}
+                />
+              </div>
+
+              <p className="text-xs text-ink-faint">
+                {remaining.length === 0
+                  ? "Tout est enregistré, bravo."
+                  : `Reste : ${remaining.map((exercise) => exercise.name).join(", ")}`}
+              </p>
+            </section>
+          ) : null}
+
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((exercise) => (
               <ExerciseCard
                 key={exercise.id}
                 exercise={exercise}
                 tracking={trackings[exercise.id]}
+                done={isToday && isDoneOn(trackings[exercise.id], now)}
                 onOpen={onOpenExercise}
               />
             ))}

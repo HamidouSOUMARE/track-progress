@@ -13,9 +13,12 @@ import { ImportHelpSheet } from "@/components/ImportHelpSheet";
 import { LibraryView } from "@/components/LibraryView";
 import { ProgramsSheet } from "@/components/ProgramsSheet";
 import { SessionView } from "@/components/SessionView";
+import { RestTimer, type RestPeriod } from "@/components/RestTimer";
 import { Toast, type ToastMessage } from "@/components/Toast";
 import { UpdateSheet } from "@/components/UpdateSheet";
 import { downloadSnapshot, readSnapshot } from "@/lib/backup";
+import { nextInSession, restSeconds } from "@/lib/session";
+import { todayWeekday } from "@/data/weekdays";
 import { useHydrated, useTrackerStore } from "@/store/tracker-store";
 import type { Exercise } from "@/lib/types";
 
@@ -43,11 +46,36 @@ export function Dashboard() {
   const [celebration, setCelebration] = useState<CelebrationPayload | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [pendingImport, setPendingImport] = useState<ImportPreview | null>(null);
+  const [rest, setRest] = useState<RestPeriod | null>(null);
   const [importHelp, setImportHelp] = useState<{ error: string | null } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selected: Exercise | null =
     exercises.find((exercise) => exercise.id === selectedId) ?? null;
+
+  /**
+   * Le repos démarre à l'enregistrement. On annonce l'exercice suivant de la
+   * séance du jour quand il y en a un : c'est ce qu'on veut lire en soufflant.
+   */
+  const startRest = (exercise: Exercise) => {
+    const seconds = restSeconds(exercise);
+    if (seconds <= 0) {
+      return;
+    }
+
+    const today = new Date();
+    const program = programs.find((item) => item.id === activeProgramId) ?? programs[0] ?? null;
+    const planned = program?.days[todayWeekday(today)] ?? [];
+    const next = nextInSession(planned, exercises, trackings, exercise.id, today);
+
+    setRest({
+      key: Date.now(),
+      endsAt: Date.now() + seconds * 1000,
+      seconds,
+      exerciseName: exercise.name,
+      nextName: next?.name ?? null,
+    });
+  };
 
   const flash = (message: string, actionLabel?: string) => {
     const key = Date.now();
@@ -201,6 +229,7 @@ export function Dashboard() {
         onClose={() => setSelectedId(null)}
         onCelebrate={setCelebration}
         onUndoable={(message) => flash(message, "Annuler")}
+        onRestStart={startRest}
       />
 
       <AddExerciseDialog
@@ -236,7 +265,18 @@ export function Dashboard() {
         onConfirm={handleImport}
       />
 
+      <RestTimer
+        rest={rest}
+        onExtend={(seconds) =>
+          setRest((current) =>
+            current ? { ...current, endsAt: current.endsAt + seconds * 1000 } : current,
+          )
+        }
+        onDismiss={() => setRest(null)}
+      />
+
       <Toast
+        raised={rest !== null}
         toast={toast}
         onAction={() => {
           undoDelete();

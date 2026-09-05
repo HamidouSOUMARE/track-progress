@@ -495,4 +495,83 @@ describe("parcours de suivi", () => {
 
     expect(useTrackerStore.getState().programs[0]?.days[today]).toEqual(["leg-curl", "squat"]);
   });
+
+  function planToday(...exerciseIds: string[]) {
+    const program = useTrackerStore.getState().createProgram("PPL");
+    const today = todayWeekday();
+
+    for (const id of exerciseIds) {
+      useTrackerStore.getState().toggleExerciseInDay(program.id, today, id);
+    }
+
+    useTrackerStore.getState().selectDay(today);
+    return program;
+  }
+
+  it("coche l'exercice enregistré et fait avancer le compteur de séance", () => {
+    planToday("squat", "leg-curl");
+    useTrackerStore.getState().startTracking("squat", 100);
+
+    render(<Dashboard />);
+
+    expect(screen.getByLabelText(/avancement de la séance/i).textContent).toMatch(/0\/2/);
+
+    fireEvent.click(screen.getByRole("button", { name: /^squat —/i }));
+    const sheet = screen.getByRole("dialog", { name: "Squat" });
+    fireEvent.click(within(sheet).getByRole("button", { name: /enregistrer la performance/i }));
+
+    const progress = screen.getByLabelText(/avancement de la séance/i);
+    expect(progress.textContent).toMatch(/1\/2/);
+    expect(progress.textContent).toMatch(/reste : leg curl/i);
+  });
+
+  it("lance le repos et annonce l'exercice suivant", () => {
+    planToday("squat", "leg-curl");
+    useTrackerStore.getState().startTracking("squat", 100);
+
+    render(<Dashboard />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^squat —/i }));
+    const sheet = screen.getByRole("dialog", { name: "Squat" });
+    fireEvent.click(within(sheet).getByRole("button", { name: /enregistrer la performance/i }));
+
+    const timer = screen.getByRole("timer");
+    expect(timer.textContent).toMatch(/1:3[01]/);
+    expect(timer.textContent).toMatch(/ensuite : leg curl/i);
+  });
+
+  it("ne lance pas de repos pour une mensuration", () => {
+    useTrackerStore.getState().startTracking("tour-de-taille", 85);
+
+    render(<Dashboard />);
+
+    const sheet = openExercise("Tour de taille");
+    fireEvent.click(within(sheet).getByRole("button", { name: /enregistrer la mesure/i }));
+
+    expect(screen.queryByRole("timer")).toBeNull();
+  });
+
+  it("rappelle la dernière performance en tête de fiche", () => {
+    useTrackerStore.getState().startTracking("squat", 100);
+    useTrackerStore.getState().logValue("squat", { value: 105, reps: 8, sets: 4 });
+
+    render(<Dashboard />);
+
+    const sheet = openExercise("Squat");
+
+    expect(sheet.textContent).toMatch(/la dernière fois/i);
+    expect(sheet.textContent).toMatch(/105 kg/);
+    expect(sheet.textContent).toMatch(/4 × 8/);
+  });
+
+  it("règle le repos d'un exercice depuis sa fiche", () => {
+    render(<Dashboard />);
+
+    const sheet = openExercise("Squat");
+    fireEvent.click(within(sheet).getByRole("button", { name: /^modifier$/i }));
+    fireEvent.click(within(sheet).getByRole("button", { name: /^3 min$/i }));
+    fireEvent.click(within(sheet).getByRole("button", { name: /^enregistrer$/i }));
+
+    expect(useTrackerStore.getState().exercises.find((i) => i.id === "squat")?.rest).toBe(180);
+  });
 });

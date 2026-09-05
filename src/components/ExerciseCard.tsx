@@ -13,10 +13,12 @@ import type { Exercise, Tracking } from "@/lib/types";
 interface ExerciseCardProps {
   exercise: Exercise;
   tracking: Tracking | undefined;
+  /** Déjà enregistré pour la séance du jour. */
+  done?: boolean;
   onOpen: (exerciseId: string) => void;
 }
 
-function ExerciseCardComponent({ exercise, tracking, onOpen }: ExerciseCardProps) {
+function ExerciseCardComponent({ exercise, tracking, done = false, onOpen }: ExerciseCardProps) {
   const group = getMuscleGroup(exercise.group);
   const accent = `var(${group.accent})`;
   const progress = tracking ? computeProgress(tracking, exercise.goal) : null;
@@ -32,7 +34,9 @@ function ExerciseCardComponent({ exercise, tracking, onOpen }: ExerciseCardProps
       whileHover={{ y: -3 }}
       whileTap={{ scale: 0.985 }}
       transition={{ type: "spring", stiffness: 400, damping: 32 }}
-      className="group relative flex w-full flex-col gap-4 overflow-hidden rounded-card border border-line bg-surface p-5 text-left shadow-card transition-colors hover:border-ink-faint/40 hover:bg-surface-raised"
+      className={`group relative flex w-full flex-col gap-4 overflow-hidden rounded-card border bg-surface p-5 text-left shadow-card transition-colors hover:border-ink-faint/40 hover:bg-surface-raised ${
+        done ? "border-accent/30 opacity-70" : "border-line"
+      }`}
       aria-label={`${exercise.name} — ${
         progress ? formatWithUnit(progress.current, exercise.unit) : "aucune référence"
       }`}
@@ -72,7 +76,15 @@ function ExerciseCardComponent({ exercise, tracking, onOpen }: ExerciseCardProps
           <h3 className="text-base leading-snug font-semibold text-ink">{exercise.name}</h3>
         </div>
 
-        {atBest ? (
+        {done ? (
+          <span
+            className="flex items-center gap-1 rounded-pill bg-accent-soft px-2 py-1 text-[0.65rem] font-bold text-accent uppercase"
+            title="Enregistré aujourd'hui"
+          >
+            <span aria-hidden="true">✓</span>
+            Fait
+          </span>
+        ) : atBest ? (
           <span
             className="rounded-pill bg-accent-soft px-2 py-1 text-[0.65rem] font-bold text-accent uppercase"
             title="Meilleur résultat enregistré"
