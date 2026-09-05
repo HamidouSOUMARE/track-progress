@@ -1,7 +1,7 @@
 import { isKnownGroup } from "@/data/muscle-groups";
 import { WEEKDAYS, emptyWeek } from "@/data/weekdays";
-import { MAX_REST_SECONDS } from "@/lib/session";
-import type { Exercise, MuscleGroupId, Program, TrackKind, Unit } from "@/lib/types";
+import { MAX_REST_SECONDS, MAX_TARGET_SETS } from "@/lib/session";
+import type { Exercise, LogEntry, MuscleGroupId, Program, SetLog, Tracking, TrackKind, Unit } from "@/lib/types";
 import type { TrackerSnapshot } from "@/store/tracker-store";
 
 /**
@@ -58,6 +58,39 @@ function sanitizeRest(raw: unknown): number | undefined {
   return Math.min(MAX_REST_SECONDS, Math.max(0, Math.round(raw)));
 }
 
+function sanitizeCount(raw: unknown, max: number): number | undefined {
+  if (typeof raw !== "number" || !Number.isFinite(raw) || raw <= 0) {
+    return undefined;
+  }
+
+  return Math.min(max, Math.round(raw));
+}
+
+/** Une série importée doit porter deux nombres exploitables, sinon on l'écarte. */
+function sanitizeSeries(raw: unknown): SetLog[] | undefined {
+  if (!Array.isArray(raw)) {
+    return undefined;
+  }
+
+  const series = raw.filter(
+    (item): item is SetLog =>
+      typeof item?.value === "number" &&
+      Number.isFinite(item.value) &&
+      typeof item?.reps === "number" &&
+      Number.isFinite(item.reps),
+  );
+
+  return series.length > 0 ? series : undefined;
+}
+
+function sanitizeEntry(entry: LogEntry): LogEntry {
+  return { ...entry, series: sanitizeSeries(entry.series) };
+}
+
+export function sanitizeTracking(tracking: Tracking): Tracking {
+  return { ...tracking, entries: tracking.entries.map(sanitizeEntry) };
+}
+
 export function sanitizeExercise(raw: Exercise): Exercise {
   const kind = KINDS.includes(raw.kind) ? raw.kind : "charge";
   const group = resolveGroup(raw.group);
@@ -69,6 +102,9 @@ export function sanitizeExercise(raw: Exercise): Exercise {
     kind,
     goal: raw.goal === "down" ? "down" : "up",
     rest: sanitizeRest(raw.rest),
+    targetSets: sanitizeCount(raw.targetSets, MAX_TARGET_SETS),
+    targetRepsMin: sanitizeCount(raw.targetRepsMin, 100),
+    targetRepsMax: sanitizeCount(raw.targetRepsMax, 100),
     custom: raw.custom !== false,
   };
 }
@@ -103,9 +139,11 @@ export function sanitizeSnapshot(snapshot: TrackerSnapshot): TrackerSnapshot {
   const knownIds = new Set(exercises.map((exercise) => exercise.id));
 
   const trackings = Object.fromEntries(
-    Object.entries(snapshot.trackings).filter(
-      ([exerciseId, tracking]) => knownIds.has(exerciseId) && Array.isArray(tracking?.entries),
-    ),
+    Object.entries(snapshot.trackings)
+      .filter(
+        ([exerciseId, tracking]) => knownIds.has(exerciseId) && Array.isArray(tracking?.entries),
+      )
+      .map(([exerciseId, tracking]) => [exerciseId, sanitizeTracking(tracking)]),
   );
 
   const programs = snapshot.programs

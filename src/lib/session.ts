@@ -1,5 +1,5 @@
 import { localStamp } from "@/data/weekdays";
-import type { Exercise, LogEntry, Tracking } from "@/lib/types";
+import type { Exercise, LogEntry, SetLog, Tracking } from "@/lib/types";
 
 /** Repos par défaut, tant que l'exercice n'a pas le sien. */
 const DEFAULT_REST_SECONDS = 90;
@@ -17,13 +17,67 @@ export function restSeconds(exercise: Pick<Exercise, "kind" | "rest">): number {
   return exercise.rest ?? DEFAULT_REST_SECONDS;
 }
 
+export const DEFAULT_TARGET_SETS = 3;
+export const MAX_TARGET_SETS = 12;
+
+export function targetSets(exercise: Pick<Exercise, "targetSets">): number {
+  return exercise.targetSets ?? DEFAULT_TARGET_SETS;
+}
+
+/**
+ * Détail des séries. Une entrée saisie avant le mode pas à pas n'en a pas :
+ * on la reconstitue à partir du couple séries × répétitions.
+ */
+export function entrySeries(entry: LogEntry): SetLog[] {
+  if (entry.series && entry.series.length > 0) {
+    return entry.series;
+  }
+
+  if (entry.reps === null) {
+    return [];
+  }
+
+  return Array.from({ length: Math.max(1, entry.sets ?? 1) }, () => ({
+    value: entry.value,
+    reps: entry.reps as number,
+  }));
+}
+
+/** Tonnage : le travail réellement fourni, là où `value` ne dit que la charge. */
+export function entryVolume(entry: LogEntry): number {
+  return entrySeries(entry).reduce((total, set) => total + set.value * set.reps, 0);
+}
+
+/** Une entrée d'avant le mode pas à pas est forcément terminée. */
+export function isEntryDone(entry: LogEntry): boolean {
+  return entry.done !== false;
+}
+
+export function openEntryOn(tracking: Tracking | undefined, day: Date): LogEntry | null {
+  return (
+    tracking?.entries.find((entry) => isSameDay(entry.date, day) && !isEntryDone(entry)) ?? null
+  );
+}
+
+export function entryOn(tracking: Tracking | undefined, day: Date): LogEntry | null {
+  return tracking?.entries.find((entry) => isSameDay(entry.date, day)) ?? null;
+}
+
 export function isSameDay(iso: string, day: Date): boolean {
   return localStamp(new Date(iso)) === localStamp(day);
 }
 
-/** Un exercice est fait quand une performance porte la date du jour consulté. */
+/** Fait : une performance du jour, dont les séries sont terminées. */
 export function isDoneOn(tracking: Tracking | undefined, day: Date): boolean {
-  return tracking?.entries.some((entry) => isSameDay(entry.date, day)) ?? false;
+  return (
+    tracking?.entries.some((entry) => isSameDay(entry.date, day) && isEntryDone(entry)) ?? false
+  );
+}
+
+/** Nombre de séries déjà validées aujourd'hui, séance en cours comprise. */
+export function setsDoneOn(tracking: Tracking | undefined, day: Date): number {
+  const entry = entryOn(tracking, day);
+  return entry ? entrySeries(entry).length : 0;
 }
 
 export function countDone(
@@ -34,9 +88,39 @@ export function countDone(
   return exercises.filter((exercise) => isDoneOn(trackings[exercise.id], day)).length;
 }
 
-/** Dernière performance enregistrée, celle qu'on veut relire avant de charger. */
-export function lastPerformance(tracking: Tracking | undefined): LogEntry | null {
-  return tracking?.entries.at(-1) ?? null;
+/**
+ * Dernière performance terminée, celle qu'on veut relire avant de charger. La
+ * séance du jour en cours ne compte pas : on veut la fois d'avant.
+ */
+export function lastPerformance(tracking: Tracking | undefined, day?: Date): LogEntry | null {
+  const entries = tracking?.entries ?? [];
+
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index]!;
+    if (day && isSameDay(entry.date, day)) {
+      continue;
+    }
+    if (isEntryDone(entry)) {
+      return entry;
+    }
+  }
+
+  return null;
+}
+
+/** Répétitions à proposer pour la série suivante, pour valider en un tap. */
+export function suggestedReps(
+  current: SetLog[],
+  previous: LogEntry | null,
+  exercise: Pick<Exercise, "targetRepsMax">,
+): number | null {
+  const lastSet = current.at(-1);
+  if (lastSet) {
+    return lastSet.reps;
+  }
+
+  const previousSets = previous ? entrySeries(previous) : [];
+  return previousSets.at(0)?.reps ?? exercise.targetRepsMax ?? null;
 }
 
 /**

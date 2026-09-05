@@ -42,16 +42,35 @@ export interface Exercise {
   archived?: boolean;
   /** Repos en secondes entre deux séries. 0 pour aucun minuteur. */
   rest?: number;
+  /** Nombre de séries visées pour cet exercice. */
+  targetSets?: number;
+  /** Fourchette de répétitions visée, affichée pendant la saisie. */
+  targetRepsMin?: number;
+  targetRepsMax?: number;
   /** Ajouté par l'utilisateur plutôt que repris du catalogue. */
   custom: boolean;
 }
 
+/** Une série : la charge portée et les répétitions tenues. */
+export interface SetLog {
+  value: number;
+  reps: number;
+}
+
 export interface LogEntry {
   id: string;
-  /** Charge, répétitions, secondes ou centimètres selon l'unité. */
+  /**
+   * Charge la plus lourde de la séance — c'est elle qui porte la progression.
+   * Le tonnage se déduit des séries, il ne remplace pas cette valeur.
+   */
   value: number;
+  /** Saisie rapide, sans détail par série. */
   reps: number | null;
   sets: number | null;
+  /** Détail série par série, quand la séance a été menée pas à pas. */
+  series?: SetLog[];
+  /** Faux tant que les séries de l'exercice ne sont pas terminées. */
+  done?: boolean;
   date: string;
 }
 
