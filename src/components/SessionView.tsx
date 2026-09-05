@@ -7,7 +7,7 @@ import { ExercisePickerSheet } from "@/components/ExercisePickerSheet";
 import { PlannedExerciseRow } from "@/components/PlannedExerciseRow";
 import { WeekStrip } from "@/components/WeekStrip";
 import { WEEKDAYS, resolveSelectedDay, todayWeekday } from "@/data/weekdays";
-import { countDone, isDoneOn } from "@/lib/session";
+import { countDone, isDoneOn, setsDoneOn } from "@/lib/session";
 import { useTrackerStore } from "@/store/tracker-store";
 import type { Exercise, WeekdayId } from "@/lib/types";
 
@@ -207,6 +207,7 @@ export function SessionView({ onOpenExercise, onManagePrograms }: SessionViewPro
                 exercise={exercise}
                 tracking={trackings[exercise.id]}
                 done={isToday && isDoneOn(trackings[exercise.id], now)}
+                setsDone={isToday ? setsDoneOn(trackings[exercise.id], now) : 0}
                 onOpen={onOpenExercise}
               />
             ))}

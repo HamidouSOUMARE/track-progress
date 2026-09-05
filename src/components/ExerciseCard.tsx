@@ -8,6 +8,7 @@ import { Sparkline } from "@/components/Sparkline";
 import { getMuscleGroup } from "@/data/muscle-groups";
 import { formatRelativeDate, formatWithUnit, unitSuffix } from "@/lib/format";
 import { computeProgress, toSeries } from "@/lib/progress";
+import { targetSets } from "@/lib/session";
 import type { Exercise, Tracking } from "@/lib/types";
 
 interface ExerciseCardProps {
@@ -15,10 +16,18 @@ interface ExerciseCardProps {
   tracking: Tracking | undefined;
   /** Déjà enregistré pour la séance du jour. */
   done?: boolean;
+  /** Séries validées aujourd'hui, pour signaler une séance en cours. */
+  setsDone?: number;
   onOpen: (exerciseId: string) => void;
 }
 
-function ExerciseCardComponent({ exercise, tracking, done = false, onOpen }: ExerciseCardProps) {
+function ExerciseCardComponent({
+  exercise,
+  tracking,
+  done = false,
+  setsDone = 0,
+  onOpen,
+}: ExerciseCardProps) {
   const group = getMuscleGroup(exercise.group);
   const accent = `var(${group.accent})`;
   const progress = tracking ? computeProgress(tracking, exercise.goal) : null;
@@ -83,6 +92,13 @@ function ExerciseCardComponent({ exercise, tracking, done = false, onOpen }: Exe
           >
             <span aria-hidden="true">✓</span>
             Fait
+          </span>
+        ) : setsDone > 0 ? (
+          <span
+            className="tabular rounded-pill border border-accent/40 px-2 py-1 text-[0.65rem] font-bold text-accent"
+            title="Séance en cours"
+          >
+            {setsDone}/{targetSets(exercise)}
           </span>
         ) : atBest ? (
           <span

@@ -25,6 +25,17 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
+/** Valide les séries d'un exercice jusqu'à atteindre l'objectif. */
+function completeSets(sheet: HTMLElement, reps: number, count = 3, from = 0) {
+  for (let index = from; index < from + count; index += 1) {
+    const field = within(sheet).getByLabelText(
+      new RegExp(`répétitions de la série ${index + 1}`, "i"),
+    );
+    fireEvent.change(field, { target: { value: String(reps) } });
+    fireEvent.click(within(sheet).getByRole("button", { name: /^valider$/i }));
+  }
+}
+
 function openExercise(name: string) {
   // Les cartes vivent dans l'onglet bibliothèque ; la séance s'affiche par défaut.
   fireEvent.click(screen.getByRole("tab", { name: /tous les suivis/i }));
@@ -50,9 +61,12 @@ describe("parcours de suivi", () => {
     expect((field as HTMLInputElement).value).toBe("105");
 
     fireEvent.click(within(updateDialog).getByRole("button", { name: /^\+2,5 kg$/ }));
-    fireEvent.click(within(updateDialog).getByRole("button", { name: /enregistrer la performance/i }));
+    completeSets(updateDialog, 8);
 
-    expect(useTrackerStore.getState().trackings.squat?.entries).toHaveLength(1);
+    const entries = useTrackerStore.getState().trackings.squat?.entries ?? [];
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.series).toHaveLength(3);
+    expect(entries[0]?.done).toBe(true);
     expect(screen.getByRole("status").textContent).toMatch(/record personnel/i);
   });
 
@@ -151,7 +165,7 @@ describe("parcours de suivi", () => {
 
     const update = openExercise("Squat");
     fireEvent.change(within(update).getByLabelText(/charge en kg/i), { target: { value: "105" } });
-    fireEvent.click(within(update).getByRole("button", { name: /enregistrer la performance/i }));
+    completeSets(update, 8);
 
     const history = openExercise("Squat");
     fireEvent.click(within(history).getByRole("button", { name: /supprimer la performance/i }));
@@ -406,7 +420,7 @@ describe("parcours de suivi", () => {
     fireEvent.click(within(sheet).getByRole("button", { name: /modifier la référence/i }));
     const field = within(sheet).getByLabelText(/nouvelle référence/i);
     fireEvent.change(field, { target: { value: "120" } });
-    fireEvent.click(within(sheet).getByRole("button", { name: /valider/i }));
+    fireEvent.click(within(sheet).getByRole("button", { name: /valider la référence/i }));
 
     // Sans performance enregistrée, la valeur actuelle suit la référence.
     expect((within(sheet).getByLabelText(/charge en kg/i) as HTMLInputElement).value).toBe("120");
@@ -422,7 +436,7 @@ describe("parcours de suivi", () => {
 
     const update = openExercise("Squat");
     fireEvent.change(within(update).getByLabelText(/charge en kg/i), { target: { value: "110" } });
-    fireEvent.click(within(update).getByRole("button", { name: /enregistrer la performance/i }));
+    completeSets(update, 8);
 
     const sheet = openExercise("Squat");
     expect((within(sheet).getByLabelText(/charge en kg/i) as HTMLInputElement).value).toBe("110");
@@ -517,8 +531,7 @@ describe("parcours de suivi", () => {
     expect(screen.getByLabelText(/avancement de la séance/i).textContent).toMatch(/0\/2/);
 
     fireEvent.click(screen.getByRole("button", { name: /^squat —/i }));
-    const sheet = screen.getByRole("dialog", { name: "Squat" });
-    fireEvent.click(within(sheet).getByRole("button", { name: /enregistrer la performance/i }));
+    completeSets(screen.getByRole("dialog", { name: "Squat" }), 8);
 
     const progress = screen.getByLabelText(/avancement de la séance/i);
     expect(progress.textContent).toMatch(/1\/2/);
@@ -533,7 +546,7 @@ describe("parcours de suivi", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^squat —/i }));
     const sheet = screen.getByRole("dialog", { name: "Squat" });
-    fireEvent.click(within(sheet).getByRole("button", { name: /enregistrer la performance/i }));
+    completeSets(sheet, 8, 1);
 
     const timer = screen.getByRole("timer");
     expect(timer.textContent).toMatch(/1:3[01]/);
@@ -553,7 +566,31 @@ describe("parcours de suivi", () => {
 
   it("rappelle la dernière performance en tête de fiche", () => {
     useTrackerStore.getState().startTracking("squat", 100);
-    useTrackerStore.getState().logValue("squat", { value: 105, reps: 8, sets: 4 });
+    useTrackerStore.setState((state) => ({
+      trackings: {
+        ...state.trackings,
+        squat: {
+          exerciseId: "squat",
+          reference: 100,
+          referenceDate: "2026-08-01T09:00:00.000Z",
+          entries: [
+            {
+              id: "seance-precedente",
+              value: 105,
+              reps: null,
+              sets: null,
+              series: [
+                { value: 105, reps: 8 },
+                { value: 105, reps: 8 },
+                { value: 105, reps: 7 },
+              ],
+              done: true,
+              date: "2026-08-20T09:00:00.000Z",
+            },
+          ],
+        },
+      },
+    }));
 
     render(<Dashboard />);
 
@@ -561,7 +598,7 @@ describe("parcours de suivi", () => {
 
     expect(sheet.textContent).toMatch(/la dernière fois/i);
     expect(sheet.textContent).toMatch(/105 kg/);
-    expect(sheet.textContent).toMatch(/4 × 8/);
+    expect(sheet.textContent).toMatch(/× 8, 8, 7/);
   });
 
   it("règle le repos d'un exercice depuis sa fiche", () => {
@@ -573,5 +610,65 @@ describe("parcours de suivi", () => {
     fireEvent.click(within(sheet).getByRole("button", { name: /^enregistrer$/i }));
 
     expect(useTrackerStore.getState().exercises.find((i) => i.id === "squat")?.rest).toBe(180);
+  });
+
+  it("n'achève l'exercice qu'une fois toutes les séries faites", () => {
+    planToday("squat");
+    useTrackerStore.getState().startTracking("squat", 100);
+
+    render(<Dashboard />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^squat —/i }));
+    const sheet = screen.getByRole("dialog", { name: "Squat" });
+
+    completeSets(sheet, 8, 1);
+    expect(useTrackerStore.getState().trackings.squat?.entries[0]?.done).toBe(false);
+    expect(screen.getByLabelText(/avancement de la séance/i).textContent).toMatch(/0\/1/);
+    expect(screen.getByRole("button", { name: /^squat —/i }).textContent).toMatch(/1\/3/);
+
+    completeSets(sheet, 8, 2, 1);
+
+    expect(useTrackerStore.getState().trackings.squat?.entries[0]?.done).toBe(true);
+    expect(screen.getByLabelText(/avancement de la séance/i).textContent).toMatch(/1\/1/);
+  });
+
+  it("annule une série mal saisie sans perdre les précédentes", () => {
+    useTrackerStore.getState().startTracking("squat", 100);
+
+    render(<Dashboard />);
+
+    const sheet = openExercise("Squat");
+    completeSets(sheet, 8, 1);
+    completeSets(sheet, 99, 1, 1);
+
+    fireEvent.click(within(sheet).getByRole("button", { name: /annuler la série 2/i }));
+
+    expect(useTrackerStore.getState().trackings.squat?.entries[0]?.series).toEqual([
+      { value: 100, reps: 8 },
+    ]);
+  });
+
+  it("affiche le tonnage de la séance dans l'historique", () => {
+    useTrackerStore.getState().startTracking("squat", 100);
+
+    render(<Dashboard />);
+
+    const sheet = openExercise("Squat");
+    completeSets(sheet, 10);
+
+    const again = openExercise("Squat");
+    // 3 séries de 10 répétitions à 100 kg.
+    expect(again.textContent).toMatch(/3\s000 kg au total/);
+  });
+
+  it("règle le nombre de séries visées depuis la fiche", () => {
+    render(<Dashboard />);
+
+    const sheet = openExercise("Squat");
+    fireEvent.click(within(sheet).getByRole("button", { name: /^modifier$/i }));
+    fireEvent.click(within(sheet).getByRole("button", { name: /une série de plus/i }));
+    fireEvent.click(within(sheet).getByRole("button", { name: /^enregistrer$/i }));
+
+    expect(useTrackerStore.getState().exercises.find((i) => i.id === "squat")?.targetSets).toBe(4);
   });
 });
