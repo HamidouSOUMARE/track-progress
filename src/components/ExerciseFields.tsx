@@ -1,6 +1,7 @@
 "use client";
 
 import { MUSCLE_GROUPS } from "@/data/muscle-groups";
+import { restSeconds } from "@/lib/session";
 import type { Goal, MuscleGroupId, TrackKind, Unit } from "@/lib/types";
 
 /** Champs partagés par la création et l'édition, pour qu'ils ne divergent pas. */
@@ -10,6 +11,8 @@ export interface ExerciseDraft {
   unit: Unit;
   kind: TrackKind;
   goal: Goal;
+  /** Repos entre séries, en secondes. 0 pour aucun minuteur. */
+  rest?: number;
 }
 
 interface ExerciseFieldsProps {
@@ -44,6 +47,14 @@ const GOALS: { id: Goal; label: string; hint: string }[] = [
 ];
 
 const TRAINING_GROUPS = MUSCLE_GROUPS.filter((group) => group.id !== "mensurations");
+
+const RESTS: { value: number; label: string }[] = [
+  { value: 0, label: "Aucun" },
+  { value: 60, label: "1 min" },
+  { value: 90, label: "1 min 30" },
+  { value: 120, label: "2 min" },
+  { value: 180, label: "3 min" },
+];
 
 const PILL_BASE =
   "rounded-pill border px-3.5 py-1.5 text-sm font-semibold transition-colors";
@@ -162,6 +173,32 @@ export function ExerciseFields({
           </p>
         ) : null}
       </fieldset>
+
+      {!isMeasure ? (
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-1 text-xs font-medium text-ink-muted">
+            Repos entre séries
+          </legend>
+          <div className="flex flex-wrap gap-2">
+            {RESTS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={restSeconds(draft) === option.value}
+                onClick={() => patch({ rest: option.value })}
+                className={`${PILL_BASE} ${
+                  restSeconds(draft) === option.value ? PILL_ON : PILL_OFF
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-ink-faint">
+            Le décompte démarre tout seul dès que tu enregistres une performance.
+          </p>
+        </fieldset>
+      ) : null}
 
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1 text-xs font-medium text-ink-muted">Le progrès va vers</legend>

@@ -7,8 +7,15 @@ import { DeltaBadge } from "@/components/DeltaBadge";
 import { getMuscleGroup } from "@/data/muscle-groups";
 import { celebrationKind, pickMessage } from "@/lib/encouragement";
 import { parseAmount, sanitizeAmount, toAmountInput } from "@/lib/amount";
-import { formatDate, formatValue, formatWithUnit, unitSuffix } from "@/lib/format";
+import {
+  formatDate,
+  formatRelativeDate,
+  formatValue,
+  formatWithUnit,
+  unitSuffix,
+} from "@/lib/format";
 import { computeProgress, getIncrements } from "@/lib/progress";
+import { lastPerformance } from "@/lib/session";
 import { useTrackerStore } from "@/store/tracker-store";
 import type { CelebrationPayload } from "@/components/Celebration";
 import type { Exercise, Tracking } from "@/lib/types";
@@ -20,6 +27,8 @@ interface UpdateSheetProps {
   onCelebrate: (payload: CelebrationPayload) => void;
   /** Remonte une action réversible pour que le tableau de bord propose de l'annuler. */
   onUndoable: (message: string) => void;
+  /** Lance le repos une fois la performance enregistrée. */
+  onRestStart: (exercise: Exercise) => void;
 }
 
 interface Opened {
@@ -43,6 +52,7 @@ export function UpdateSheet({
   onClose,
   onCelebrate,
   onUndoable,
+  onRestStart,
 }: UpdateSheetProps) {
   const startTracking = useTrackerStore((state) => state.startTracking);
   const updateReference = useTrackerStore((state) => state.updateReference);
@@ -150,6 +160,7 @@ export function UpdateSheet({
       unit: active.unit,
       exerciseName: active.name,
     });
+    onRestStart(active);
     onClose();
   };
 
@@ -161,6 +172,7 @@ export function UpdateSheet({
     setEditingReference(false);
   };
 
+  const previous = lastPerformance(activeTracking);
   const history = activeTracking ? [...activeTracking.entries].reverse() : [];
 
   return (
@@ -190,6 +202,7 @@ export function UpdateSheet({
                       unit: active.unit,
                       kind: active.kind,
                       goal: active.goal,
+                      rest: active.rest,
                     },
               )
             }
@@ -272,6 +285,23 @@ export function UpdateSheet({
             : "Indique la charge que tu utilises aujourd'hui : elle deviendra ta référence de départ."}
         </p>
       )}
+
+      {previous ? (
+        <p className="mb-3 flex flex-wrap items-baseline justify-center gap-x-2 text-sm text-ink-muted">
+          <span className="text-xs tracking-wide text-ink-faint uppercase">La dernière fois</span>
+          <span className="tabular font-semibold text-ink">
+            {formatWithUnit(previous.value, active.unit)}
+            {previous.reps ? (
+              <span className="font-normal text-ink-muted">
+                {" "}
+                × {previous.sets ? `${previous.sets} × ` : ""}
+                {previous.reps}
+              </span>
+            ) : null}
+          </span>
+          <span className="text-xs text-ink-faint">{formatRelativeDate(previous.date)}</span>
+        </p>
+      ) : null}
 
       <div className="flex items-center justify-between gap-3">
         <button
