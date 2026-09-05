@@ -17,8 +17,12 @@ export function todayWeekday(now = new Date()): WeekdayId {
 }
 
 /** Repère de journée locale, sans passer par UTC qui décalerait la nuit. */
+export function localStamp(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
 export function todayStamp(now = new Date()): string {
-  return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  return localStamp(now);
 }
 
 /**

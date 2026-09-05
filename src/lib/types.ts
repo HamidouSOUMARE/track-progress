@@ -40,6 +40,8 @@ export interface Exercise {
   note?: string;
   /** Masqué des listes, mais l'historique est conservé. */
   archived?: boolean;
+  /** Repos en secondes entre deux séries. 0 pour aucun minuteur. */
+  rest?: number;
   /** Ajouté par l'utilisateur plutôt que repris du catalogue. */
   custom: boolean;
 }

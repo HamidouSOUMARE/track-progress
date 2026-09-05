@@ -1,5 +1,6 @@
 import { isKnownGroup } from "@/data/muscle-groups";
 import { WEEKDAYS, emptyWeek } from "@/data/weekdays";
+import { MAX_REST_SECONDS } from "@/lib/session";
 import type { Exercise, MuscleGroupId, Program, TrackKind, Unit } from "@/lib/types";
 import type { TrackerSnapshot } from "@/store/tracker-store";
 
@@ -48,6 +49,15 @@ export function resolveGroup(raw: unknown): MuscleGroupId {
   return GROUP_ALIASES[key] ?? "autres";
 }
 
+/** Un repos négatif, absurde ou non numérique ne doit pas atteindre le minuteur. */
+function sanitizeRest(raw: unknown): number | undefined {
+  if (typeof raw !== "number" || !Number.isFinite(raw)) {
+    return undefined;
+  }
+
+  return Math.min(MAX_REST_SECONDS, Math.max(0, Math.round(raw)));
+}
+
 export function sanitizeExercise(raw: Exercise): Exercise {
   const kind = KINDS.includes(raw.kind) ? raw.kind : "charge";
   const group = resolveGroup(raw.group);
@@ -58,6 +68,7 @@ export function sanitizeExercise(raw: Exercise): Exercise {
     unit: UNITS.includes(raw.unit) ? raw.unit : "kg",
     kind,
     goal: raw.goal === "down" ? "down" : "up",
+    rest: sanitizeRest(raw.rest),
     custom: raw.custom !== false,
   };
 }

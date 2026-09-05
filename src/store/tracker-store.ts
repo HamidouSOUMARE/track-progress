@@ -31,6 +31,8 @@ export interface NewExercise {
   unit: Unit;
   kind: TrackKind;
   goal: Goal;
+  /** Repos en secondes entre deux séries. */
+  rest?: number;
 }
 
 export interface LogInput {
