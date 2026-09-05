@@ -13,7 +13,9 @@ l'app le fait savoir.
 ## Deux vues
 
 - **Séance** — la vue par défaut. Le programme suivi, la semaine en bandeau, et les
-  exercices du jour prêts à être mis à jour. C'est l'écran qu'on ouvre à la salle.
+  exercices du jour prêts à être mis à jour. C'est l'écran qu'on ouvre à la salle : il
+  suit l'avancement (3/6, exercices cochés, ce qu'il reste), lance le **minuteur de repos**
+  dès qu'une performance est enregistrée et annonce l'exercice suivant.
 - **Tous les suivis** — la bibliothèque complète : statistiques, recherche, filtres par
   groupe musculaire, et les suivis masqués repliés en bas.
 
@@ -26,7 +28,9 @@ l'app le fait savoir.
   taille), qui pilote la couleur, la détection de record et le message d'encouragement.
 - **Bouton retour du téléphone** : il referme la feuille ouverte au lieu de quitter l'app.
 - **Mise à jour en deux gestes** : incréments rapides (+1,25 / +2,5 / +5 kg), répétitions
-  et séries optionnelles.
+  et séries optionnelles, avec le rappel de la dernière performance en tête de fiche.
+- **Repos réglable par exercice** (aucun, 1 min, 1 min 30, 2 min, 3 min), décompte adossé
+  à un instant de fin pour ne pas dériver quand l'écran s'éteint.
 - **Animation de célébration** quand une charge progresse, avec badge « record personnel ».
 - **Historique et sparkline** par exercice. Toute suppression — une performance, un
   suivi entier — s'annule pendant six secondes depuis une barre flottante, sans boîte
