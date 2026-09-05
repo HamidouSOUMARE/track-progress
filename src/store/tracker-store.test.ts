@@ -347,6 +347,122 @@ describe("suppression et programmes", () => {
   });
 });
 
+describe("logSet", () => {
+  it("ouvre la séance du jour à la première série", () => {
+    store().startTracking("squat", 100);
+
+    const result = store().logSet("squat", { value: 100, reps: 8 });
+
+    expect(result).toEqual({ setNumber: 1, reachedTarget: false });
+    expect(store().trackings.squat?.entries).toHaveLength(1);
+    expect(store().trackings.squat?.entries[0]?.done).toBe(false);
+  });
+
+  it("empile les séries dans la même entrée", () => {
+    store().startTracking("squat", 100);
+    store().logSet("squat", { value: 100, reps: 8 });
+    store().logSet("squat", { value: 100, reps: 7 });
+
+    expect(store().trackings.squat?.entries).toHaveLength(1);
+    expect(store().trackings.squat?.entries[0]?.series).toEqual([
+      { value: 100, reps: 8 },
+      { value: 100, reps: 7 },
+    ]);
+  });
+
+  it("retient la charge la plus lourde de la séance", () => {
+    store().startTracking("squat", 100);
+    store().logSet("squat", { value: 105, reps: 8 });
+    store().logSet("squat", { value: 95, reps: 10 });
+
+    expect(store().trackings.squat?.entries[0]?.value).toBe(105);
+  });
+
+  it("signale l'objectif atteint au nombre de séries visé", () => {
+    store().updateExercise("squat", { targetSets: 2 });
+    store().startTracking("squat", 100);
+
+    expect(store().logSet("squat", { value: 100, reps: 8 })?.reachedTarget).toBe(false);
+    expect(store().logSet("squat", { value: 100, reps: 8 })?.reachedTarget).toBe(true);
+  });
+
+  it("ne fait rien sans référence enregistrée", () => {
+    expect(store().logSet("squat", { value: 100, reps: 8 })).toBeNull();
+  });
+});
+
+describe("finishExercise", () => {
+  it("clôt la séance et juge le record sur la charge la plus lourde", () => {
+    store().startTracking("squat", 100);
+    store().logSet("squat", { value: 110, reps: 8 });
+
+    const result = store().finishExercise("squat");
+
+    expect(result).toEqual({ record: true, delta: 10, gain: 10, previous: 100 });
+    expect(store().trackings.squat?.entries[0]?.done).toBe(true);
+  });
+
+  it("ne compare pas la séance du jour à elle-même", () => {
+    store().startTracking("squat", 100);
+    store().logSet("squat", { value: 100, reps: 8 });
+
+    expect(store().finishExercise("squat")?.record).toBe(false);
+  });
+
+  it("ne fait rien quand aucune séance n'est ouverte", () => {
+    store().startTracking("squat", 100);
+
+    expect(store().finishExercise("squat")).toBeNull();
+  });
+
+  it("accepte une série de plus après avoir terminé", () => {
+    store().updateExercise("squat", { targetSets: 1 });
+    store().startTracking("squat", 100);
+    store().logSet("squat", { value: 100, reps: 8 });
+    store().finishExercise("squat");
+
+    const extra = store().logSet("squat", { value: 100, reps: 6 });
+
+    expect(extra?.reachedTarget).toBe(false);
+    expect(store().trackings.squat?.entries).toHaveLength(1);
+    expect(store().trackings.squat?.entries[0]?.done).toBe(true);
+  });
+});
+
+describe("removeLastSet", () => {
+  it("retire la dernière série validée", () => {
+    store().startTracking("squat", 100);
+    store().logSet("squat", { value: 100, reps: 8 });
+    store().logSet("squat", { value: 110, reps: 6 });
+
+    store().removeLastSet("squat");
+
+    expect(store().trackings.squat?.entries[0]?.series).toEqual([{ value: 100, reps: 8 }]);
+    expect(store().trackings.squat?.entries[0]?.value).toBe(100);
+  });
+
+  it("supprime l'entrée quand il ne reste plus de série", () => {
+    store().startTracking("squat", 100);
+    store().logSet("squat", { value: 100, reps: 8 });
+
+    store().removeLastSet("squat");
+
+    expect(store().trackings.squat?.entries).toEqual([]);
+  });
+
+  it("rouvre une séance déjà terminée", () => {
+    store().updateExercise("squat", { targetSets: 1 });
+    store().startTracking("squat", 100);
+    store().logSet("squat", { value: 100, reps: 8 });
+    store().finishExercise("squat");
+    store().logSet("squat", { value: 100, reps: 6 });
+
+    store().removeLastSet("squat");
+
+    expect(store().trackings.squat?.entries[0]?.done).toBe(false);
+  });
+});
+
 describe("updateExercise", () => {
   it("change l'unité d'un exercice importé sans toucher à l'historique", () => {
     store().startTracking("tractions", 8);

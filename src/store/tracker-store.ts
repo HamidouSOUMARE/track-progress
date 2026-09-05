@@ -7,6 +7,7 @@ import { buildDefaultExercises } from "@/data/exercise-catalog";
 import { emptyWeek, todayStamp } from "@/data/weekdays";
 import { mergeSnapshots } from "@/lib/merge";
 import { sanitizeExercise, sanitizeSnapshot } from "@/lib/sanitize";
+import { entryOn, entrySeries, isEntryDone, openEntryOn, targetSets } from "@/lib/session";
 import { isRecord } from "@/lib/progress";
 import type {
   Exercise,
@@ -14,6 +15,7 @@ import type {
   LogEntry,
   MuscleGroupId,
   Program,
+  SetLog,
   TrackKind,
   Tracking,
   Unit,
@@ -23,7 +25,7 @@ import type {
 const STORAGE_KEY = "track-progress";
 
 /** Version du format persisté, reprise dans les fichiers exportés. */
-export const STORAGE_VERSION = 4;
+export const STORAGE_VERSION = 5;
 
 export interface NewExercise {
   name: string;
@@ -33,12 +35,22 @@ export interface NewExercise {
   goal: Goal;
   /** Repos en secondes entre deux séries. */
   rest?: number;
+  targetSets?: number;
+  targetRepsMin?: number;
+  targetRepsMax?: number;
 }
 
 export interface LogInput {
   value: number;
   reps: number | null;
   sets: number | null;
+}
+
+export interface SetResult {
+  /** Rang de la série qu'on vient de valider. */
+  setNumber: number;
+  /** Le nombre de séries visé est atteint. */
+  reachedTarget: boolean;
 }
 
 export interface LogResult {
@@ -109,6 +121,9 @@ interface TrackerState extends TrackerSnapshot {
   ) => void;
   reorderDay: (programId: string, day: WeekdayId, orderedIds: string[]) => void;
   logValue: (exerciseId: string, input: LogInput) => LogResult | null;
+  logSet: (exerciseId: string, set: SetLog) => SetResult | null;
+  removeLastSet: (exerciseId: string) => void;
+  finishExercise: (exerciseId: string) => LogResult | null;
   removeEntry: (exerciseId: string, entryId: string) => void;
   replaceAll: (snapshot: TrackerSnapshot) => void;
   mergeAll: (snapshot: TrackerSnapshot) => void;
@@ -333,6 +348,133 @@ export const useTrackerStore = create<TrackerState>()(
         }));
 
         return { record, delta, gain: goal === "up" ? delta : -delta, previous };
+      },
+
+      /**
+       * Ajoute une série à la séance du jour, en ouvrant l'entrée à la première.
+       * L'écriture est immédiate : fermer l'app entre deux séries ne perd rien.
+       */
+      logSet: (exerciseId, newSet) => {
+        const state = get();
+        const tracking = state.trackings[exerciseId];
+        const exercise = state.exercises.find((item) => item.id === exerciseId);
+
+        if (!tracking || !exercise) {
+          return null;
+        }
+
+        // On complète la séance du jour même terminée : rien n'interdit une
+        // série de plus après coup.
+        const open = entryOn(tracking, new Date());
+        const series = open ? [...entrySeries(open), newSet] : [newSet];
+        const entry: LogEntry = open
+          ? { ...open, series, value: Math.max(open.value, newSet.value), done: open.done }
+          : {
+              id: createId(),
+              value: newSet.value,
+              reps: null,
+              sets: null,
+              series,
+              done: false,
+              date: new Date().toISOString(),
+            };
+
+        set((current) => {
+          const target = current.trackings[exerciseId];
+          if (!target) {
+            return current;
+          }
+
+          const entries = open
+            ? target.entries.map((item) => (item.id === entry.id ? entry : item))
+            : [...target.entries, entry];
+
+          return { trackings: { ...current.trackings, [exerciseId]: { ...target, entries } } };
+        });
+
+        return {
+          setNumber: series.length,
+          reachedTarget:
+            !isEntryDone(entry) && series.length >= targetSets(exercise),
+        };
+      },
+
+      /** Retire la dernière série validée : une répétition mal tapée se rattrape. */
+      removeLastSet: (exerciseId) => {
+        set((state) => {
+          const tracking = state.trackings[exerciseId];
+          const today = tracking ? entryOn(tracking, new Date()) : null;
+
+          if (!tracking || !today) {
+            return state;
+          }
+
+          const series = entrySeries(today).slice(0, -1);
+          const entries =
+            series.length === 0
+              ? tracking.entries.filter((entry) => entry.id !== today.id)
+              : tracking.entries.map((entry) =>
+                  entry.id === today.id
+                    ? {
+                        ...entry,
+                        series,
+                        value: Math.max(...series.map((item) => item.value)),
+                        done: false,
+                      }
+                    : entry,
+                );
+
+          return { trackings: { ...state.trackings, [exerciseId]: { ...tracking, entries } } };
+        });
+      },
+
+      /**
+       * Clôt la séance du jour pour cet exercice. Le record se juge sur la
+       * charge la plus lourde, comparée à tout l'historique sauf cette séance.
+       */
+      finishExercise: (exerciseId) => {
+        const state = get();
+        const tracking = state.trackings[exerciseId];
+        const goal = state.exercises.find((item) => item.id === exerciseId)?.goal ?? "up";
+        const open = tracking ? openEntryOn(tracking, new Date()) : null;
+
+        if (!tracking || !open) {
+          return null;
+        }
+
+        const others = tracking.entries.filter((entry) => entry.id !== open.id);
+        const previousBest = others.reduce(
+          (best, entry) => (goal === "up" ? Math.max(best, entry.value) : Math.min(best, entry.value)),
+          tracking.reference,
+        );
+        const previous = [...others].reverse().find(isEntryDone)?.value ?? tracking.reference;
+        const delta = open.value - previous;
+
+        set((current) => {
+          const target = current.trackings[exerciseId];
+          if (!target) {
+            return current;
+          }
+
+          return {
+            trackings: {
+              ...current.trackings,
+              [exerciseId]: {
+                ...target,
+                entries: target.entries.map((entry) =>
+                  entry.id === open.id ? { ...entry, done: true } : entry,
+                ),
+              },
+            },
+          };
+        });
+
+        return {
+          record: goal === "up" ? open.value > previousBest : open.value < previousBest,
+          delta,
+          gain: goal === "up" ? delta : -delta,
+          previous,
+        };
       },
 
       removeEntry: (exerciseId, entryId) => {
