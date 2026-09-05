@@ -27,8 +27,12 @@ l'app le fait savoir.
   chaque mesure porte le sens de son objectif (↑ gagner du bras, ↓ perdre du tour de
   taille), qui pilote la couleur, la détection de record et le message d'encouragement.
 - **Bouton retour du téléphone** : il referme la feuille ouverte au lieu de quitter l'app.
-- **Mise à jour en deux gestes** : incréments rapides (+1,25 / +2,5 / +5 kg), répétitions
-  et séries optionnelles, avec le rappel de la dernière performance en tête de fiche.
+- **Séance série par série** : on règle la charge, on valide chaque série avec ses
+  répétitions, le repos démarre aussitôt et l'exercice passe en « fait » une fois le
+  nombre de séries visé atteint. Le rappel de la dernière séance figure en tête de fiche.
+- **Charge et tonnage distingués** : la progression et les records se jugent sur la
+  charge la plus lourde de la séance, jamais sur le volume — cinq séries au lieu de
+  quatre ne font pas un record. Le tonnage s'affiche à part dans l'historique.
 - **Repos réglable par exercice** (aucun, 1 min, 1 min 30, 2 min, 3 min), décompte adossé
   à un instant de fin pour ne pas dériver quand l'écran s'éteint.
 - **Animation de célébration** quand une charge progresse, avec badge « record personnel ».
