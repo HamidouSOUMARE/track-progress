@@ -1,7 +1,7 @@
 "use client";
 
 import { MUSCLE_GROUPS } from "@/data/muscle-groups";
-import { restSeconds } from "@/lib/session";
+import { MAX_TARGET_SETS, restSeconds, targetSets } from "@/lib/session";
 import type { Goal, MuscleGroupId, TrackKind, Unit } from "@/lib/types";
 
 /** Champs partagés par la création et l'édition, pour qu'ils ne divergent pas. */
@@ -13,6 +13,9 @@ export interface ExerciseDraft {
   goal: Goal;
   /** Repos entre séries, en secondes. 0 pour aucun minuteur. */
   rest?: number;
+  targetSets?: number;
+  targetRepsMin?: number;
+  targetRepsMax?: number;
 }
 
 interface ExerciseFieldsProps {
@@ -173,6 +176,68 @@ export function ExerciseFields({
           </p>
         ) : null}
       </fieldset>
+
+      {!isMeasure ? (
+        <div className="grid grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-muted">
+            Séries visées
+            <span className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => patch({ targetSets: Math.max(1, targetSets(draft) - 1) })}
+                aria-label="Une série de moins"
+                className="size-9 shrink-0 rounded-card border border-line text-lg font-bold text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
+              >
+                −
+              </button>
+              <span className="tabular flex-1 text-center text-lg font-bold text-ink">
+                {targetSets(draft)}
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  patch({ targetSets: Math.min(MAX_TARGET_SETS, targetSets(draft) + 1) })
+                }
+                aria-label="Une série de plus"
+                className="size-9 shrink-0 rounded-card border border-line text-lg font-bold text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
+              >
+                +
+              </button>
+            </span>
+          </label>
+
+          <fieldset className="flex flex-col gap-1.5 text-xs font-medium text-ink-muted">
+            <legend className="mb-1.5">Reps visées</legend>
+            <span className="flex items-center gap-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                aria-label="Répétitions minimum"
+                value={draft.targetRepsMin ?? ""}
+                onChange={(event) =>
+                  patch({ targetRepsMin: Number(event.target.value.replace(/[^\d]/g, "")) || undefined })
+                }
+                placeholder="6"
+                className="tabular w-full min-w-0 rounded-card border border-line bg-surface-raised px-2 py-2 text-center text-base text-ink outline-none placeholder:text-ink-faint"
+              />
+              <span aria-hidden="true" className="text-ink-faint">
+                –
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                aria-label="Répétitions maximum"
+                value={draft.targetRepsMax ?? ""}
+                onChange={(event) =>
+                  patch({ targetRepsMax: Number(event.target.value.replace(/[^\d]/g, "")) || undefined })
+                }
+                placeholder="10"
+                className="tabular w-full min-w-0 rounded-card border border-line bg-surface-raised px-2 py-2 text-center text-base text-ink outline-none placeholder:text-ink-faint"
+              />
+            </span>
+          </fieldset>
+        </div>
+      ) : null}
 
       {!isMeasure ? (
         <fieldset className="flex flex-col gap-2">

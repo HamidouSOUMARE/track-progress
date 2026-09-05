@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ExerciseFields, type ExerciseDraft } from "@/components/ExerciseFields";
+import { SeriesPanel } from "@/components/SeriesPanel";
 import { Sheet } from "@/components/Sheet";
 import { DeltaBadge } from "@/components/DeltaBadge";
 import { getMuscleGroup } from "@/data/muscle-groups";
@@ -15,7 +16,14 @@ import {
   unitSuffix,
 } from "@/lib/format";
 import { computeProgress, getIncrements } from "@/lib/progress";
-import { lastPerformance } from "@/lib/session";
+import {
+  entryOn,
+  entrySeries,
+  entryVolume,
+  isEntryDone,
+  lastPerformance,
+  suggestedReps,
+} from "@/lib/session";
 import { useTrackerStore } from "@/store/tracker-store";
 import type { CelebrationPayload } from "@/components/Celebration";
 import type { Exercise, Tracking } from "@/lib/types";
@@ -58,6 +66,9 @@ export function UpdateSheet({
   const updateReference = useTrackerStore((state) => state.updateReference);
   const logValue = useTrackerStore((state) => state.logValue);
   const removeEntry = useTrackerStore((state) => state.removeEntry);
+  const logSet = useTrackerStore((state) => state.logSet);
+  const removeLastSet = useTrackerStore((state) => state.removeLastSet);
+  const finishExercise = useTrackerStore((state) => state.finishExercise);
   const removeExercise = useTrackerStore((state) => state.removeExercise);
 
   const setNote = useTrackerStore((state) => state.setNote);
@@ -85,20 +96,28 @@ export function UpdateSheet({
   // Le champ garde la saisie brute : voir sanitizeAmount pour le pourquoi.
   const [amount, setAmount] = useState<string>(progress ? toAmountInput(progress.current) : "");
   const [reps, setReps] = useState("");
-  const [sets, setSets] = useState("");
   const [referenceDraft, setReferenceDraft] = useState<string>("");
   const [editingReference, setEditingReference] = useState(false);
   const [draft, setDraft] = useState<ExerciseDraft | null>(null);
   const [syncedId, setSyncedId] = useState<string | null>(exercise?.id ?? null);
   const [syncedTracking, setSyncedTracking] = useState<Tracking | undefined>(tracking);
 
+  const now = new Date();
+  const todayEntry = entryOn(activeTracking, now);
+  const todaySeries = todayEntry ? entrySeries(todayEntry) : [];
+  const finishedToday = todayEntry !== null && isEntryDone(todayEntry);
+  const previous = lastPerformance(activeTracking, now);
+
   const activeId = exercise?.id ?? null;
   if (activeId !== syncedId) {
     setSyncedId(activeId);
     if (exercise) {
       setAmount(progress ? toAmountInput(progress.current) : "");
-      setReps("");
-      setSets("");
+      // La série suivante part des répétitions les plus probables : celles de la
+      // série précédente, sinon celles de la dernière séance.
+      setReps(
+        String(suggestedReps(todaySeries, previous, { targetRepsMax: exercise.targetRepsMax }) ?? ""),
+      );
       setEditingReference(false);
       setDraft(null);
     }
@@ -142,8 +161,8 @@ export function UpdateSheet({
   const handleSave = () => {
     const result = logValue(active.id, {
       value,
-      reps: reps ? Number(reps) : null,
-      sets: sets ? Number(sets) : null,
+      reps: null,
+      sets: null,
     });
 
     if (!result) {
@@ -172,7 +191,44 @@ export function UpdateSheet({
     setEditingReference(false);
   };
 
-  const previous = lastPerformance(activeTracking);
+  const handleValidateSet = () => {
+    const count = Number(reps);
+    if (value <= 0 || !Number.isFinite(count) || count <= 0) {
+      return;
+    }
+
+    const result = logSet(active.id, { value, reps: count });
+    if (!result) {
+      return;
+    }
+
+    vibrate([10]);
+    onRestStart(active);
+
+    if (result.reachedTarget) {
+      handleFinish();
+    }
+  };
+
+  const handleFinish = () => {
+    const result = finishExercise(active.id);
+    if (!result) {
+      onClose();
+      return;
+    }
+
+    const kind = celebrationKind(result.gain, result.record);
+    vibrate(result.record ? [14, 40, 22] : [10]);
+    onCelebrate({
+      key: Date.now(),
+      kind,
+      message: pickMessage(kind, active.goal),
+      delta: result.delta,
+      unit: active.unit,
+      exerciseName: active.name,
+    });
+    onClose();
+  };
   const history = activeTracking ? [...activeTracking.entries].reverse() : [];
 
   return (
@@ -203,6 +259,9 @@ export function UpdateSheet({
                       kind: active.kind,
                       goal: active.goal,
                       rest: active.rest,
+                      targetSets: active.targetSets,
+                      targetRepsMin: active.targetRepsMin,
+                      targetRepsMax: active.targetRepsMax,
                     },
               )
             }
@@ -291,11 +350,10 @@ export function UpdateSheet({
           <span className="text-xs tracking-wide text-ink-faint uppercase">La dernière fois</span>
           <span className="tabular font-semibold text-ink">
             {formatWithUnit(previous.value, active.unit)}
-            {previous.reps ? (
+            {entrySeries(previous).length > 0 ? (
               <span className="font-normal text-ink-muted">
                 {" "}
-                × {previous.sets ? `${previous.sets} × ` : ""}
-                {previous.reps}
+                × {entrySeries(previous).map((set) => set.reps).join(", ")}
               </span>
             ) : null}
           </span>
@@ -378,49 +436,31 @@ export function UpdateSheet({
         </div>
       ) : null}
 
-      {progress && !isMeasure ? (
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-muted">
-            Répétitions
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              value={reps}
-              onChange={(event) => setReps(event.target.value)}
-              placeholder="8"
-              className="tabular rounded-card border border-line bg-surface-raised px-3 py-2 text-base text-ink outline-none placeholder:text-ink-faint"
-            />
-          </label>
-          <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-muted">
-            Séries
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              value={sets}
-              onChange={(event) => setSets(event.target.value)}
-              placeholder="4"
-              className="tabular rounded-card border border-line bg-surface-raised px-3 py-2 text-base text-ink outline-none placeholder:text-ink-faint"
-            />
-          </label>
-        </div>
-      ) : null}
-
-      <button
-        type="button"
-        onClick={progress ? handleSave : handleStart}
-        disabled={value <= 0}
-        className="mt-5 w-full rounded-card bg-accent px-4 py-3.5 text-base font-bold text-accent-ink transition-transform hover:bg-accent-strong active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        {progress
-          ? isMeasure
+      {!progress || isMeasure ? (
+        <button
+          type="button"
+          onClick={progress ? handleSave : handleStart}
+          disabled={value <= 0}
+          className="mt-5 w-full rounded-card bg-accent px-4 py-3.5 text-base font-bold text-accent-ink transition-transform hover:bg-accent-strong active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {progress
             ? "Enregistrer la mesure"
-            : "Enregistrer la performance"
-          : isMeasure
-            ? "Définir ma mesure de départ"
-            : "Définir ma référence"}
-      </button>
+            : isMeasure
+              ? "Définir ma mesure de départ"
+              : "Définir ma référence"}
+        </button>
+      ) : (
+        <SeriesPanel
+          exercise={active}
+          series={todaySeries}
+          reps={reps}
+          onRepsChange={setReps}
+          onValidate={handleValidateSet}
+          onRemoveLast={() => removeLastSet(active.id)}
+          onFinish={handleFinish}
+          finished={finishedToday}
+        />
+      )}
 
       <section className="mt-6">
         <label
@@ -484,7 +524,7 @@ export function UpdateSheet({
                 onClick={handleReferenceSave}
                 className="rounded-card border border-accent/40 px-4 text-sm font-semibold text-accent"
               >
-                Valider
+                Valider la référence
               </button>
             </div>
           ) : null}
@@ -497,17 +537,26 @@ export function UpdateSheet({
             <ul className="flex flex-col divide-y divide-line">
               {history.map((entry) => (
                 <li key={entry.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <div className="flex flex-col">
+                  <div className="flex min-w-0 flex-col">
                     <span className="tabular text-sm font-semibold text-ink">
                       {formatWithUnit(entry.value, active.unit)}
-                      {entry.reps ? (
+                      {entrySeries(entry).length > 0 ? (
                         <span className="ml-2 text-xs font-normal text-ink-faint">
-                          {entry.sets ? `${entry.sets} × ` : ""}
-                          {entry.reps} reps
+                          × {entrySeries(entry).map((set) => set.reps).join(", ")}
                         </span>
                       ) : null}
                     </span>
-                    <span className="text-xs text-ink-faint">{formatDate(entry.date)}</span>
+                    <span className="flex flex-wrap gap-x-2 text-xs text-ink-faint">
+                      <span>{formatDate(entry.date)}</span>
+                      {!isMeasure && entryVolume(entry) > 0 ? (
+                        <span className="tabular">
+                          {formatValue(entryVolume(entry))} {unitSuffix(active.unit)} au total
+                        </span>
+                      ) : null}
+                      {!isEntryDone(entry) ? (
+                        <span className="text-accent">en cours</span>
+                      ) : null}
+                    </span>
                   </div>
                   <button
                     type="button"
