@@ -105,8 +105,8 @@ describe("mergeSnapshots", () => {
   });
 
   it("ajoute les programmes du fichier sans supprimer les miens", () => {
-    const mine = { id: "ppl", name: "PPL", days: emptyWeek() };
-    const theirs = { id: "fullbody", name: "Full body", days: emptyWeek() };
+    const mine = { id: "ppl", name: "PPL", workouts: [], days: emptyWeek() };
+    const theirs = { id: "fullbody", name: "Full body", workouts: [], days: emptyWeek() };
 
     const merged = mergeSnapshots(snapshot({ programs: [mine] }), snapshot({ programs: [theirs] }));
 
@@ -118,8 +118,8 @@ describe("mergeSnapshots", () => {
     days.lundi = ["squat"];
 
     const merged = mergeSnapshots(
-      snapshot({ programs: [{ id: "ppl", name: "PPL", days: emptyWeek() }] }),
-      snapshot({ programs: [{ id: "ppl", name: "PPL v2", days }] }),
+      snapshot({ programs: [{ id: "ppl", name: "PPL", workouts: [], days: emptyWeek() }] }),
+      snapshot({ programs: [{ id: "ppl", name: "PPL v2", workouts: [], days }] }),
     );
 
     expect(merged.programs[0]?.name).toBe("PPL v2");

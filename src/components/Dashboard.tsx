@@ -65,7 +65,11 @@ export function Dashboard() {
 
     const today = new Date();
     const program = programs.find((item) => item.id === activeProgramId) ?? programs[0] ?? null;
-    const planned = program?.days[todayWeekday(today)] ?? [];
+    // Les jours portent des séances : il faut les déplier pour obtenir les exercices.
+    const planned =
+      program?.days[todayWeekday(today)].flatMap(
+        (workoutId) => program.workouts.find((item) => item.id === workoutId)?.exercises ?? [],
+      ) ?? [];
     const next = nextInSession(planned, exercises, trackings, exercise.id, today);
 
     setRest({

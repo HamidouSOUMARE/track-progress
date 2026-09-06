@@ -1,5 +1,6 @@
 import { emptyWeek } from "@/data/weekdays";
 import { serializeSnapshot } from "@/lib/backup";
+import type { Workout } from "@/lib/types";
 import type { TrackerSnapshot } from "@/store/tracker-store";
 
 /**
@@ -8,9 +9,15 @@ import type { TrackerSnapshot } from "@/store/tracker-store";
  * accidentel n'aille pas greffer un faux historique sur de vrais exercices.
  */
 export function buildSampleSnapshot(): TrackerSnapshot {
+  const haut: Workout = {
+    id: "exemple-seance-haut",
+    name: "Haut du corps (exemple)",
+    exercises: ["exemple-developpe-couche", "exemple-tractions"],
+  };
+
   const days = emptyWeek();
-  days.lundi = ["exemple-developpe-couche", "exemple-tractions"];
-  days.jeudi = ["exemple-developpe-couche"];
+  days.lundi = [haut.id];
+  days.jeudi = [haut.id];
 
   return {
     exercises: [
@@ -99,7 +106,9 @@ export function buildSampleSnapshot(): TrackerSnapshot {
         ],
       },
     },
-    programs: [{ id: "exemple-programme", name: "Haut du corps (exemple)", days }],
+    programs: [
+      { id: "exemple-programme", name: "Prise de masse (exemple)", workouts: [haut], days },
+    ],
     activeProgramId: "exemple-programme",
   };
 }

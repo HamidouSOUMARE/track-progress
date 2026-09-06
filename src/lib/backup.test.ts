@@ -64,7 +64,9 @@ describe("parseSnapshot", () => {
     const snapshot = parseSnapshot(withProgram);
 
     expect(snapshot.programs).toHaveLength(1);
-    expect(snapshot.programs[0]?.days.lundi).toEqual(["squat"]);
+    const [workout] = snapshot.programs[0]?.workouts ?? [];
+    expect(workout?.exercises).toEqual(["squat"]);
+    expect(snapshot.programs[0]?.days.lundi).toEqual([workout?.id]);
     expect(snapshot.activeProgramId).toBe("ppl");
   });
 

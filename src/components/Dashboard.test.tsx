@@ -230,14 +230,26 @@ describe("parcours de suivi", () => {
 
     expect(useTrackerStore.getState().programs[0]?.name).toBe("Push Pull Legs");
 
-    // Le jour du jour est sélectionné : on lui ajoute un exercice.
-    fireEvent.click(screen.getByRole("button", { name: /ajouter des exercices/i }));
+    // Le jour est vide : on lui programme une séance, puis on la remplit.
+    fireEvent.click(screen.getByRole("button", { name: /programmer une séance/i }));
+    const workoutPicker = screen.getByRole("dialog", { name: /séance du/i });
+    fireEvent.change(within(workoutPicker).getByLabelText(/nom de la nouvelle séance/i), {
+      target: { value: "Haut du corps" },
+    });
+    fireEvent.click(within(workoutPicker).getByRole("button", { name: /^créer$/i }));
+
     const picker = screen.getByRole("dialog", { name: /ajouter des exercices/i });
     fireEvent.click(within(picker).getByRole("button", { name: /^squat$/i }));
     fireEvent.click(within(picker).getByRole("button", { name: /terminer/i }));
 
     const today = todayWeekday();
-    expect(useTrackerStore.getState().programs[0]?.days[today]).toEqual(["squat"]);
+    const [workout] = useTrackerStore.getState().programs[0]?.workouts ?? [];
+    expect(workout?.name).toBe("Haut du corps");
+    expect(workout?.exercises).toEqual(["squat"]);
+    expect(useTrackerStore.getState().programs[0]?.days[today]).toEqual([workout?.id]);
+
+    // On sort de l'édition pour retrouver la séance prête à être suivie.
+    fireEvent.click(screen.getByRole("button", { name: /terminer l'édition/i }));
     expect(screen.getByRole("button", { name: /^squat — aucune référence$/i })).toBeDefined();
   });
 
@@ -311,7 +323,7 @@ describe("parcours de suivi", () => {
   it("affiche une séance dont les exercices viennent d'un fichier importé", () => {
     // Groupes plus fins que ceux de l'app : le rendu ne doit pas tomber.
     const days = emptyWeek();
-    days[todayWeekday()] = ["curl-incline", "squat-importe"];
+    days[todayWeekday()] = ["w"];
 
     useTrackerStore.setState({
       exercises: [
@@ -335,7 +347,16 @@ describe("parcours de suivi", () => {
         },
       ],
       trackings: {},
-      programs: [{ id: "p", name: "Recomposition", days }],
+      programs: [
+        {
+          id: "p",
+          name: "Recomposition",
+          workouts: [
+            { id: "w", name: "Haut du corps", exercises: ["curl-incline", "squat-importe"] },
+          ],
+          days,
+        },
+      ],
       activeProgramId: "p",
       selectedDay: { day: todayWeekday(), date: todayStamp() },
       lastDeletion: null,
@@ -512,30 +533,32 @@ describe("parcours de suivi", () => {
   });
 
   it("garde les flèches pour réordonner sans glisser", () => {
-    const program = useTrackerStore.getState().createProgram("PPL");
-    const today = todayWeekday();
-    useTrackerStore.getState().toggleExerciseInDay(program.id, today, "squat");
-    useTrackerStore.getState().toggleExerciseInDay(program.id, today, "leg-curl");
-    useTrackerStore.getState().selectDay(today);
+    planToday("squat", "leg-curl");
 
     render(<Dashboard />);
 
-    fireEvent.click(screen.getByRole("button", { name: /modifier la séance/i }));
+    fireEvent.click(screen.getByRole("button", { name: /modifier la journée/i }));
     fireEvent.click(screen.getByRole("button", { name: /monter leg curl/i }));
 
-    expect(useTrackerStore.getState().programs[0]?.days[today]).toEqual(["leg-curl", "squat"]);
+    expect(useTrackerStore.getState().programs[0]?.workouts[0]?.exercises).toEqual([
+      "leg-curl",
+      "squat",
+    ]);
   });
 
   function planToday(...exerciseIds: string[]) {
-    const program = useTrackerStore.getState().createProgram("PPL");
+    const state = useTrackerStore.getState();
+    const program = state.createProgram("PPL");
+    const workout = state.createWorkout(program.id, "Séance du test")!;
     const today = todayWeekday();
 
+    state.assignWorkout(program.id, today, workout.id);
     for (const id of exerciseIds) {
-      useTrackerStore.getState().toggleExerciseInDay(program.id, today, id);
+      state.toggleExerciseInWorkout(program.id, workout.id, id);
     }
 
-    useTrackerStore.getState().selectDay(today);
-    return program;
+    state.selectDay(today);
+    return { program, workout };
   }
 
   it("coche l'exercice enregistré et fait avancer le compteur de séance", () => {
@@ -737,5 +760,48 @@ describe("parcours de suivi", () => {
     await waitForElementToBeRemoved(() => screen.queryByRole("timer"));
     // Le message est tiré au sort : on vérifie que la célébration cible bien l'exercice.
     expect(screen.getByRole("status").textContent).toMatch(/squat/i);
+  });
+
+  it("réutilise une séance sur un autre jour sans la dupliquer", () => {
+    const { program, workout } = planToday("squat", "leg-curl");
+    const other = WEEKDAYS.find((weekday) => weekday.id !== todayWeekday())!;
+    useTrackerStore.getState().assignWorkout(program.id, other.id, workout.id);
+
+    render(<Dashboard />);
+
+    // La séance est la même : retirer un exercice le retire des deux jours.
+    fireEvent.click(screen.getByRole("button", { name: /modifier la journée/i }));
+    expect(screen.getByText(new RegExp(`aussi programmée le ${other.label}`, "i"))).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: /retirer leg curl/i }));
+
+    const programs = useTrackerStore.getState().programs;
+    expect(programs[0]?.workouts).toHaveLength(1);
+    expect(programs[0]?.workouts[0]?.exercises).toEqual(["squat"]);
+    expect(programs[0]?.days[other.id]).toEqual([workout.id]);
+  });
+
+  it("retire une séance d'un jour sans la supprimer du programme", () => {
+    const { program, workout } = planToday("squat");
+    const other = WEEKDAYS.find((weekday) => weekday.id !== todayWeekday())!;
+    useTrackerStore.getState().assignWorkout(program.id, other.id, workout.id);
+
+    render(<Dashboard />);
+
+    fireEvent.click(screen.getByRole("button", { name: /modifier la journée/i }));
+    fireEvent.click(screen.getByRole("button", { name: /retirer séance du test du/i }));
+
+    const programs = useTrackerStore.getState().programs;
+    expect(programs[0]?.days[todayWeekday()]).toEqual([]);
+    expect(programs[0]?.days[other.id]).toEqual([workout.id]);
+    expect(programs[0]?.workouts).toHaveLength(1);
+  });
+
+  it("affiche le nom de la séance au-dessus des exercices", () => {
+    planToday("squat");
+
+    render(<Dashboard />);
+
+    expect(screen.getByRole("heading", { name: /séance du test/i })).toBeDefined();
   });
 });

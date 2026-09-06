@@ -45,8 +45,10 @@ l'app le fait savoir.
   de mesure. Un repère discret sur la carte signale les suivis annotés.
 - **Suivis personnalisés** mesurés en kilos, répétitions, secondes ou centimètres.
 - **Statistiques globales** : kilos gagnés, suivis en progression, records battus.
-- **Programmes** : autant que nécessaire (PPL, full body, saison…), chacun avec ses
-  exercices placés sur les jours de la semaine. L'ordre de la séance se change au
+- **Programmes composés de séances** : un programme réunit des séances nommées
+  (« Haut du corps », « Jambes »), qu'on pose ensuite sur les jours de la semaine. Une
+  même séance peut revenir plusieurs fois — changer de rythme revient à déplacer des
+  étiquettes, pas à reconstruire des listes. L'ordre des exercices se change au
   glisser-déposer par une poignée, ou aux flèches — qui restent le chemin accessible
   au clavier et au lecteur d'écran. Un seul est « suivi » à la
   fois et alimente la vue Séance.

@@ -79,10 +79,11 @@ describe("sauvegarde d'exemple", () => {
     expect(snapshot.exercises.some((exercise) => exercise.id === "exemple-developpe-couche")).toBe(
       true,
     );
-    expect(snapshot.programs[0]?.days.lundi).toEqual([
+    expect(snapshot.programs[0]?.workouts[0]?.exercises).toEqual([
       "exemple-developpe-couche",
       "exemple-tractions",
     ]);
+    expect(snapshot.programs[0]?.days.lundi).toEqual(["exemple-seance-haut"]);
   });
 
   it("n'écrase aucun exercice du catalogue si on l'importe par erreur", () => {
@@ -109,9 +110,16 @@ describe("sauvegarde d'exemple", () => {
     }
 
     for (const program of programs) {
-      for (const day of Object.values(program.days)) {
-        for (const exerciseId of day) {
+      for (const workout of program.workouts) {
+        for (const exerciseId of workout.exercises) {
           expect(ids.has(exerciseId)).toBe(true);
+        }
+      }
+
+      const known = new Set(program.workouts.map((workout) => workout.id));
+      for (const day of Object.values(program.days)) {
+        for (const workoutId of day) {
+          expect(known.has(workoutId)).toBe(true);
         }
       }
     }

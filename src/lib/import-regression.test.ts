@@ -38,11 +38,10 @@ describe("import d'un programme aux groupes plus fins", () => {
     const snapshot = parseSnapshot(raw);
 
     expect(snapshot.programs[0]?.name).toBe("Recomposition 12 semaines - 5 séances");
-    expect(snapshot.programs[0]?.days.mercredi).toEqual([
-      "squat",
-      "leg-curl-assis",
-      "mollets-debout",
-    ]);
+    const mercredi = snapshot.programs[0]?.days.mercredi[0];
+    const workout = snapshot.programs[0]?.workouts.find((item) => item.id === mercredi);
+    expect(workout?.name).toBe("Séance du mercredi");
+    expect(workout?.exercises).toEqual(["squat", "leg-curl-assis", "mollets-debout"]);
     expect(snapshot.activeProgramId).toBe("recomposition-12-semaines");
     expect(snapshot.exercises.find((item) => item.id === "curl-incline")?.note).toBe("3 x 8-12");
   });
