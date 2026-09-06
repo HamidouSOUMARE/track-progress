@@ -113,9 +113,22 @@ export interface Weekday {
   letter: string;
 }
 
+/**
+ * Une séance existe par elle-même : elle porte un nom et sa liste d'exercices.
+ * La semaine ne fait que la poser sur des jours, ce qui permet de changer de
+ * rythme sans rien reconstruire.
+ */
+export interface Workout {
+  id: string;
+  name: string;
+  /** Exercices dans l'ordre où on les enchaîne. */
+  exercises: string[];
+}
+
 export interface Program {
   id: string;
   name: string;
-  /** Exercices de chaque jour, dans l'ordre où on les enchaîne. */
+  workouts: Workout[];
+  /** Séances programmées par jour — plusieurs sont possibles. */
   days: Record<WeekdayId, string[]>;
 }

@@ -1,7 +1,18 @@
 import { isKnownGroup } from "@/data/muscle-groups";
 import { WEEKDAYS, emptyWeek } from "@/data/weekdays";
+import { createId } from "@/lib/id";
 import { MAX_REST_SECONDS, MAX_TARGET_SETS } from "@/lib/session";
-import type { Exercise, LogEntry, MuscleGroupId, Program, SetLog, Tracking, TrackKind, Unit } from "@/lib/types";
+import type {
+  Exercise,
+  LogEntry,
+  MuscleGroupId,
+  Program,
+  SetLog,
+  Tracking,
+  TrackKind,
+  Unit,
+  Workout,
+} from "@/lib/types";
 import type { TrackerSnapshot } from "@/store/tracker-store";
 
 /**
@@ -109,21 +120,68 @@ export function sanitizeExercise(raw: Exercise): Exercise {
   };
 }
 
+function isId(value: unknown): value is string {
+  return typeof value === "string";
+}
+
+/**
+ * Avant les séances nommées, les jours portaient directement les exercices. On
+ * en fabrique une séance par jour occupé plutôt que de deviner que deux jours
+ * identiques n'en font qu'une : lier deux jours doit rester un choix explicite.
+ */
+function upgradeProgram(program: Program): Program {
+  if (Array.isArray(program.workouts)) {
+    return program;
+  }
+
+  const workouts: Workout[] = [];
+  const days = emptyWeek();
+
+  for (const weekday of WEEKDAYS) {
+    const planned = program.days?.[weekday.id];
+    if (!Array.isArray(planned) || planned.length === 0) {
+      continue;
+    }
+
+    const workout: Workout = {
+      id: createId(),
+      name: `Séance du ${weekday.label.toLowerCase()}`,
+      exercises: planned.filter(isId),
+    };
+
+    workouts.push(workout);
+    days[weekday.id] = [workout.id];
+  }
+
+  return { ...program, workouts, days };
+}
+
 /**
  * Normalise la semaine sans toucher au contenu : un fichier peut ne contenir
  * qu'un programme dont les exercices existent déjà dans l'app.
  */
-function sanitizeProgram(program: Program): Program {
+function sanitizeProgram(raw: Program): Program {
+  const program = upgradeProgram(raw);
+  const workouts = program.workouts
+    .filter((workout) => isId(workout?.id))
+    .map<Workout>((workout) => ({
+      ...workout,
+      name: typeof workout.name === "string" ? workout.name : "Séance",
+      exercises: Array.isArray(workout.exercises) ? workout.exercises.filter(isId) : [],
+    }));
+
+  // Une séance référencée mais absente ne s'afficherait nulle part.
+  const known = new Set(workouts.map((workout) => workout.id));
   const days = emptyWeek();
 
   for (const weekday of WEEKDAYS) {
     const planned = program.days?.[weekday.id];
     if (Array.isArray(planned)) {
-      days[weekday.id] = planned.filter((id): id is string => typeof id === "string");
+      days[weekday.id] = planned.filter((id) => isId(id) && known.has(id));
     }
   }
 
-  return { ...program, days };
+  return { ...program, workouts, days };
 }
 
 /**

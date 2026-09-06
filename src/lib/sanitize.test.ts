@@ -92,23 +92,61 @@ describe("sanitizeSnapshot", () => {
 
   it("garde une séance dont les exercices vivent déjà dans l'app", () => {
     const days = emptyWeek();
-    days.lundi = ["squat", "developpe-couche"];
+    days.lundi = ["seance-haut"];
 
     const clean = sanitizeSnapshot(
       snapshot({
         exercises: [],
-        programs: [{ id: "p", name: "P", days }],
+        programs: [
+          {
+            id: "p",
+            name: "P",
+            workouts: [
+              { id: "seance-haut", name: "Haut", exercises: ["squat", "developpe-couche"] },
+            ],
+            days,
+          },
+        ],
         activeProgramId: "p",
       }),
     );
 
-    expect(clean.programs[0]?.days.lundi).toEqual(["squat", "developpe-couche"]);
+    expect(clean.programs[0]?.workouts[0]?.exercises).toEqual(["squat", "developpe-couche"]);
+    expect(clean.programs[0]?.days.lundi).toEqual(["seance-haut"]);
+  });
+
+  it("convertit un programme d'avant les séances nommées", () => {
+    const days = emptyWeek();
+    days.lundi = ["squat", "leg-curl"];
+
+    const clean = sanitizeSnapshot(
+      snapshot({
+        programs: [{ id: "p", name: "P", days } as never],
+        activeProgramId: "p",
+      }),
+    );
+
+    const [workout] = clean.programs[0]?.workouts ?? [];
+    expect(workout?.name).toBe("Séance du lundi");
+    expect(workout?.exercises).toEqual(["squat", "leg-curl"]);
+    expect(clean.programs[0]?.days.lundi).toEqual([workout?.id]);
+  });
+
+  it("écarte une séance programmée mais absente du fichier", () => {
+    const days = emptyWeek();
+    days.lundi = ["fantome"];
+
+    const clean = sanitizeSnapshot(
+      snapshot({ programs: [{ id: "p", name: "P", workouts: [], days }] }),
+    );
+
+    expect(clean.programs[0]?.days.lundi).toEqual([]);
   });
 
   it("répare un programme suivi qui n'existe pas", () => {
     const clean = sanitizeSnapshot(
       snapshot({
-        programs: [{ id: "reel", name: "Réel", days: emptyWeek() }],
+        programs: [{ id: "reel", name: "Réel", workouts: [], days: emptyWeek() }],
         activeProgramId: "disparu",
       }),
     );
@@ -119,7 +157,7 @@ describe("sanitizeSnapshot", () => {
   it("complète une séance dont les jours manquent", () => {
     const clean = sanitizeSnapshot(
       snapshot({
-        programs: [{ id: "p", name: "P", days: { lundi: [] } as never }],
+        programs: [{ id: "p", name: "P", workouts: [], days: { lundi: [] } as never }],
       }),
     );
 
