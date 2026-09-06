@@ -20,7 +20,6 @@ import { computeProgress, getIncrements } from "@/lib/progress";
 import {
   entryOn,
   entrySeries,
-  entryVolume,
   isEntryDone,
   lastPerformance,
   suggestedReps,
@@ -590,11 +589,6 @@ export function UpdateSheet({
                     </span>
                     <span className="flex flex-wrap gap-x-2 text-xs text-ink-faint">
                       <span>{formatDate(entry.date)}</span>
-                      {!isMeasure && entryVolume(entry) > 0 ? (
-                        <span className="tabular">
-                          {formatValue(entryVolume(entry))} {unitSuffix(active.unit)} au total
-                        </span>
-                      ) : null}
                       {!isEntryDone(entry) ? (
                         <span className="text-accent">en cours</span>
                       ) : null}

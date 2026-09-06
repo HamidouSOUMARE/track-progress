@@ -665,7 +665,7 @@ describe("parcours de suivi", () => {
     ]);
   });
 
-  it("affiche le tonnage de la séance dans l'historique", () => {
+  it("liste les séries de chaque séance dans l'historique", () => {
     useTrackerStore.getState().startTracking("squat", 100);
 
     render(<Dashboard />);
@@ -675,8 +675,9 @@ describe("parcours de suivi", () => {
 
     const again = openExercise("Squat");
     expandPanel(again, /^historique/i);
-    // 3 séries de 10 répétitions à 100 kg.
-    expect(again.textContent).toMatch(/3\s000 kg au total/);
+
+    expect(again.textContent).toMatch(/× 10, 10, 10/);
+    expect(again.textContent).not.toMatch(/au total/);
   });
 
   it("règle le nombre de séries visées depuis la fiche", () => {
