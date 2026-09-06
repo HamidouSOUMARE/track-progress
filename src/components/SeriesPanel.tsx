@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { formatValue, formatWithUnit } from "@/lib/format";
+import { formatWithUnit } from "@/lib/format";
 import { targetSets } from "@/lib/session";
 import type { Exercise, SetLog } from "@/lib/types";
 
@@ -151,9 +151,7 @@ export function SeriesPanel({
             className="mt-2 text-center text-xs text-ink-faint"
           >
             {finished
-              ? `Séance terminée — ${formatValue(
-                  series.reduce((total, set) => total + set.value * set.reps, 0),
-                )} kg soulevés`
+              ? "Séance terminée"
               : remaining > 0
                 ? `Encore ${remaining} série${remaining > 1 ? "s" : ""}`
                 : "Objectif atteint, tu peux terminer"}
