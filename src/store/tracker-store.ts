@@ -4,7 +4,8 @@ import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { buildDefaultExercises } from "@/data/exercise-catalog";
-import { emptyWeek, todayStamp } from "@/data/weekdays";
+import { WEEKDAYS, emptyWeek, todayStamp } from "@/data/weekdays";
+import { createId } from "@/lib/id";
 import { mergeSnapshots } from "@/lib/merge";
 import { sanitizeExercise, sanitizeSnapshot } from "@/lib/sanitize";
 import { entryOn, entrySeries, isEntryDone, openEntryOn, targetSets } from "@/lib/session";
@@ -20,12 +21,13 @@ import type {
   Tracking,
   Unit,
   WeekdayId,
+  Workout,
 } from "@/lib/types";
 
 const STORAGE_KEY = "track-progress";
 
 /** Version du format persisté, reprise dans les fichiers exportés. */
-export const STORAGE_VERSION = 5;
+export const STORAGE_VERSION = 6;
 
 export interface NewExercise {
   name: string;
@@ -62,10 +64,10 @@ export interface LogResult {
   previous: number;
 }
 
-/** Place d'un exercice dans un programme, retenue pour pouvoir l'y remettre. */
+/** Place d'un exercice dans une séance, retenue pour pouvoir l'y remettre. */
 interface ProgramSlot {
   programId: string;
-  day: WeekdayId;
+  workoutId: string;
   index: number;
 }
 
@@ -80,7 +82,15 @@ export type Deletion =
       slots: ProgramSlot[];
     }
   | { type: "program"; program: Program; index: number; wasActive: boolean }
-  | { type: "archive"; exerciseId: string; previous: boolean };
+  | { type: "archive"; exerciseId: string; previous: boolean }
+  | {
+      type: "workout";
+      programId: string;
+      workout: Workout;
+      index: number;
+      /** Jours où la séance était posée. */
+      days: WeekdayId[];
+    };
 
 export interface SelectedDay {
   day: WeekdayId;
@@ -112,14 +122,19 @@ interface TrackerState extends TrackerSnapshot {
   deleteProgram: (programId: string) => void;
   setActiveProgram: (programId: string | null) => void;
   selectDay: (day: WeekdayId) => void;
-  toggleExerciseInDay: (programId: string, day: WeekdayId, exerciseId: string) => void;
-  moveExerciseInDay: (
+  createWorkout: (programId: string, name: string) => Workout | null;
+  renameWorkout: (programId: string, workoutId: string, name: string) => void;
+  deleteWorkout: (programId: string, workoutId: string) => void;
+  assignWorkout: (programId: string, day: WeekdayId, workoutId: string) => void;
+  unassignWorkout: (programId: string, day: WeekdayId, workoutId: string) => void;
+  toggleExerciseInWorkout: (programId: string, workoutId: string, exerciseId: string) => void;
+  moveExerciseInWorkout: (
     programId: string,
-    day: WeekdayId,
+    workoutId: string,
     exerciseId: string,
     offset: number,
   ) => void;
-  reorderDay: (programId: string, day: WeekdayId, orderedIds: string[]) => void;
+  reorderWorkout: (programId: string, workoutId: string, orderedIds: string[]) => void;
   logValue: (exerciseId: string, input: LogInput) => LogResult | null;
   logSet: (exerciseId: string, set: SetLog) => SetResult | null;
   removeLastSet: (exerciseId: string) => void;
@@ -127,13 +142,6 @@ interface TrackerState extends TrackerSnapshot {
   removeEntry: (exerciseId: string, entryId: string) => void;
   replaceAll: (snapshot: TrackerSnapshot) => void;
   mergeAll: (snapshot: TrackerSnapshot) => void;
-}
-
-function createId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function slugify(name: string): string {
@@ -159,6 +167,24 @@ function createEntry(input: LogInput): LogEntry {
  * v1 ne connaissait que les charges. On complète les exercices existants et on
  * ajoute les mensurations par défaut sans toucher à l'historique déjà saisi.
  */
+function mapWorkout(
+  programs: Program[],
+  programId: string,
+  workoutId: string,
+  update: (workout: Workout) => Workout,
+): Program[] {
+  return programs.map((program) =>
+    program.id === programId
+      ? {
+          ...program,
+          workouts: program.workouts.map((workout) =>
+            workout.id === workoutId ? update(workout) : workout,
+          ),
+        }
+      : program,
+  );
+}
+
 export function migrateSnapshot(persisted: unknown, version: number): TrackerSnapshot {
   const snapshot = (persisted ?? {}) as Partial<TrackerSnapshot>;
   const trackings = snapshot.trackings ?? {};
@@ -236,19 +262,21 @@ export const useTrackerStore = create<TrackerState>()(
           delete trackings[exerciseId];
 
           const slots: ProgramSlot[] = [];
-          const programs = state.programs.map((program) => {
-            const days = { ...program.days };
-
-            for (const [day, ids] of Object.entries(days) as [WeekdayId, string[]][]) {
-              const slot = ids.indexOf(exerciseId);
-              if (slot >= 0) {
-                slots.push({ programId: program.id, day, index: slot });
-                days[day] = ids.filter((id) => id !== exerciseId);
+          const programs = state.programs.map((program) => ({
+            ...program,
+            workouts: program.workouts.map((workout) => {
+              const slot = workout.exercises.indexOf(exerciseId);
+              if (slot < 0) {
+                return workout;
               }
-            }
 
-            return { ...program, days };
-          });
+              slots.push({ programId: program.id, workoutId: workout.id, index: slot });
+              return {
+                ...workout,
+                exercises: workout.exercises.filter((id) => id !== exerciseId),
+              };
+            }),
+          }));
 
           return {
             exercises: state.exercises.filter((item) => item.id !== exerciseId),
@@ -499,7 +527,7 @@ export const useTrackerStore = create<TrackerState>()(
       },
 
       createProgram: (name) => {
-        const program: Program = { id: createId(), name, days: emptyWeek() };
+        const program: Program = { id: createId(), name, workouts: [], days: emptyWeek() };
 
         set((state) => ({
           programs: [...state.programs, program],
@@ -545,19 +573,112 @@ export const useTrackerStore = create<TrackerState>()(
         set({ selectedDay: { day, date: todayStamp() } });
       },
 
-      toggleExerciseInDay: (programId, day, exerciseId) => {
+      createWorkout: (programId, name) => {
+        const program = get().programs.find((item) => item.id === programId);
+        if (!program) {
+          return null;
+        }
+
+        const workout: Workout = { id: createId(), name, exercises: [] };
+
+        set((state) => ({
+          programs: state.programs.map((item) =>
+            item.id === programId ? { ...item, workouts: [...item.workouts, workout] } : item,
+          ),
+        }));
+
+        return workout;
+      },
+
+      renameWorkout: (programId, workoutId, name) => {
+        set((state) => ({
+          programs: mapWorkout(state.programs, programId, workoutId, (workout) => ({
+            ...workout,
+            name,
+          })),
+        }));
+      },
+
+      /** Supprimer une séance la retire aussi des jours où elle était posée. */
+      deleteWorkout: (programId, workoutId) => {
+        set((state) => {
+          const program = state.programs.find((item) => item.id === programId);
+          const index = program?.workouts.findIndex((item) => item.id === workoutId) ?? -1;
+          const workout = program?.workouts[index];
+
+          if (!program || !workout) {
+            return state;
+          }
+
+          const assignedTo = WEEKDAYS.filter((weekday) =>
+            program.days[weekday.id].includes(workoutId),
+          ).map((weekday) => weekday.id);
+
+          const days = { ...program.days };
+          for (const day of assignedTo) {
+            days[day] = days[day].filter((id) => id !== workoutId);
+          }
+
+          return {
+            programs: state.programs.map((item) =>
+              item.id === programId
+                ? { ...item, workouts: item.workouts.filter((w) => w.id !== workoutId), days }
+                : item,
+            ),
+            lastDeletion: { type: "workout", programId, workout, index, days: assignedTo },
+          };
+        });
+      },
+
+      assignWorkout: (programId, day, workoutId) => {
         set((state) => ({
           programs: state.programs.map((program) => {
-            if (program.id !== programId) {
+            if (program.id !== programId || program.days[day].includes(workoutId)) {
               return program;
             }
 
-            const ids = program.days[day];
-            const next = ids.includes(exerciseId)
-              ? ids.filter((id) => id !== exerciseId)
-              : [...ids, exerciseId];
+            return { ...program, days: { ...program.days, [day]: [...program.days[day], workoutId] } };
+          }),
+        }));
+      },
 
-            return { ...program, days: { ...program.days, [day]: next } };
+      unassignWorkout: (programId, day, workoutId) => {
+        set((state) => ({
+          programs: state.programs.map((program) =>
+            program.id === programId
+              ? {
+                  ...program,
+                  days: { ...program.days, [day]: program.days[day].filter((id) => id !== workoutId) },
+                }
+              : program,
+          ),
+        }));
+      },
+
+      toggleExerciseInWorkout: (programId, workoutId, exerciseId) => {
+        set((state) => ({
+          programs: mapWorkout(state.programs, programId, workoutId, (workout) => ({
+            ...workout,
+            exercises: workout.exercises.includes(exerciseId)
+              ? workout.exercises.filter((id) => id !== exerciseId)
+              : [...workout.exercises, exerciseId],
+          })),
+        }));
+      },
+
+      moveExerciseInWorkout: (programId, workoutId, exerciseId, offset) => {
+        set((state) => ({
+          programs: mapWorkout(state.programs, programId, workoutId, (workout) => {
+            const exercises = [...workout.exercises];
+            const from = exercises.indexOf(exerciseId);
+            const to = from + offset;
+
+            if (from < 0 || to < 0 || to >= exercises.length) {
+              return workout;
+            }
+
+            exercises.splice(to, 0, ...exercises.splice(from, 1));
+            return { ...workout, exercises };
           }),
         }));
       },
@@ -567,38 +688,13 @@ export const useTrackerStore = create<TrackerState>()(
        * de la nouvelle liste — un exercice qu'un fichier importé n'a pas fourni,
        * donc non affiché — sont conservés à la suite plutôt que perdus.
        */
-      reorderDay: (programId, day, orderedIds) => {
+      reorderWorkout: (programId, workoutId, orderedIds) => {
         set((state) => ({
-          programs: state.programs.map((program) => {
-            if (program.id !== programId) {
-              return program;
-            }
-
+          programs: mapWorkout(state.programs, programId, workoutId, (workout) => {
             const moved = new Set(orderedIds);
-            const untouched = program.days[day].filter((id) => !moved.has(id));
+            const untouched = workout.exercises.filter((id) => !moved.has(id));
 
-            return { ...program, days: { ...program.days, [day]: [...orderedIds, ...untouched] } };
-          }),
-        }));
-      },
-
-      moveExerciseInDay: (programId, day, exerciseId, offset) => {
-        set((state) => ({
-          programs: state.programs.map((program) => {
-            if (program.id !== programId) {
-              return program;
-            }
-
-            const ids = [...program.days[day]];
-            const from = ids.indexOf(exerciseId);
-            const to = from + offset;
-
-            if (from < 0 || to < 0 || to >= ids.length) {
-              return program;
-            }
-
-            ids.splice(to, 0, ...ids.splice(from, 1));
-            return { ...program, days: { ...program.days, [day]: ids } };
+            return { ...workout, exercises: [...orderedIds, ...untouched] };
           }),
         }));
       },
@@ -611,6 +707,27 @@ export const useTrackerStore = create<TrackerState>()(
         }
 
         set((state) => {
+          if (deletion.type === "workout") {
+            return {
+              programs: state.programs.map((program) => {
+                if (program.id !== deletion.programId) {
+                  return program;
+                }
+
+                const workouts = [...program.workouts];
+                workouts.splice(deletion.index, 0, deletion.workout);
+
+                const days = { ...program.days };
+                for (const day of deletion.days) {
+                  days[day] = [...days[day], deletion.workout.id];
+                }
+
+                return { ...program, workouts, days };
+              }),
+              lastDeletion: null,
+            };
+          }
+
           if (deletion.type === "archive") {
             return {
               exercises: state.exercises.map((exercise) =>
@@ -643,14 +760,19 @@ export const useTrackerStore = create<TrackerState>()(
                 return program;
               }
 
-              const days = { ...program.days };
-              for (const slot of slots) {
-                const ids = [...days[slot.day]];
-                ids.splice(slot.index, 0, deletion.exercise.id);
-                days[slot.day] = ids;
-              }
+              return {
+                ...program,
+                workouts: program.workouts.map((workout) => {
+                  const slot = slots.find((item) => item.workoutId === workout.id);
+                  if (!slot) {
+                    return workout;
+                  }
 
-              return { ...program, days };
+                  const exercises = [...workout.exercises];
+                  exercises.splice(slot.index, 0, deletion.exercise.id);
+                  return { ...workout, exercises };
+                }),
+              };
             });
 
             return {

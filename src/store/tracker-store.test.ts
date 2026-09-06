@@ -1,8 +1,23 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildDefaultExercises } from "@/data/exercise-catalog";
 import { migrateSnapshot, useTrackerStore } from "@/store/tracker-store";
+import type { WeekdayId } from "@/lib/types";
 
 const store = () => useTrackerStore.getState();
+
+/** Programme avec une séance posée sur un jour, socle des tests de planning. */
+function programWithWorkout(day: WeekdayId = "lundi", name = "Séance") {
+  const program = store().createProgram("PPL");
+  const workout = store().createWorkout(program.id, name)!;
+  store().assignWorkout(program.id, day, workout.id);
+
+  return { program, workout };
+}
+
+/** Exercices de la première séance du premier programme. */
+function plannedExercises(): string[] {
+  return store().programs[0]?.workouts[0]?.exercises ?? [];
+}
 
 beforeEach(() => {
   localStorage.clear();
@@ -210,44 +225,44 @@ describe("programmes", () => {
   });
 
   it("place et retire un exercice sur un jour", () => {
-    const program = store().createProgram("PPL");
+    const { program, workout } = programWithWorkout();
 
-    store().toggleExerciseInDay(program.id, "lundi", "squat");
-    expect(store().programs[0]?.days.lundi).toEqual(["squat"]);
+    store().toggleExerciseInWorkout(program.id, workout.id, "squat");
+    expect(plannedExercises()).toEqual(["squat"]);
 
-    store().toggleExerciseInDay(program.id, "lundi", "squat");
-    expect(store().programs[0]?.days.lundi).toEqual([]);
+    store().toggleExerciseInWorkout(program.id, workout.id, "squat");
+    expect(plannedExercises()).toEqual([]);
   });
 
   it("réordonne les exercices d'une séance", () => {
-    const program = store().createProgram("PPL");
-    store().toggleExerciseInDay(program.id, "lundi", "squat");
-    store().toggleExerciseInDay(program.id, "lundi", "presse-a-cuisses");
-    store().toggleExerciseInDay(program.id, "lundi", "leg-curl");
+    const { program, workout } = programWithWorkout();
+    store().toggleExerciseInWorkout(program.id, workout.id, "squat");
+    store().toggleExerciseInWorkout(program.id, workout.id, "presse-a-cuisses");
+    store().toggleExerciseInWorkout(program.id, workout.id, "leg-curl");
 
-    store().moveExerciseInDay(program.id, "lundi", "leg-curl", -1);
+    store().moveExerciseInWorkout(program.id, workout.id, "leg-curl", -1);
 
-    expect(store().programs[0]?.days.lundi).toEqual(["squat", "leg-curl", "presse-a-cuisses"]);
+    expect(plannedExercises()).toEqual(["squat", "leg-curl", "presse-a-cuisses"]);
   });
 
   it("ignore un déplacement hors des bornes", () => {
-    const program = store().createProgram("PPL");
-    store().toggleExerciseInDay(program.id, "lundi", "squat");
+    const { program, workout } = programWithWorkout();
+    store().toggleExerciseInWorkout(program.id, workout.id, "squat");
 
-    store().moveExerciseInDay(program.id, "lundi", "squat", -1);
+    store().moveExerciseInWorkout(program.id, workout.id, "squat", -1);
 
-    expect(store().programs[0]?.days.lundi).toEqual(["squat"]);
+    expect(plannedExercises()).toEqual(["squat"]);
   });
 
   it("réordonne une séance entière après un glisser-déposer", () => {
-    const program = store().createProgram("PPL");
-    store().toggleExerciseInDay(program.id, "lundi", "squat");
-    store().toggleExerciseInDay(program.id, "lundi", "presse-a-cuisses");
-    store().toggleExerciseInDay(program.id, "lundi", "leg-curl");
+    const { program, workout } = programWithWorkout();
+    store().toggleExerciseInWorkout(program.id, workout.id, "squat");
+    store().toggleExerciseInWorkout(program.id, workout.id, "presse-a-cuisses");
+    store().toggleExerciseInWorkout(program.id, workout.id, "leg-curl");
 
-    store().reorderDay(program.id, "lundi", ["leg-curl", "squat", "presse-a-cuisses"]);
+    store().reorderWorkout(program.id, workout.id, ["leg-curl", "squat", "presse-a-cuisses"]);
 
-    expect(store().programs[0]?.days.lundi).toEqual([
+    expect(plannedExercises()).toEqual([
       "leg-curl",
       "squat",
       "presse-a-cuisses",
@@ -255,14 +270,14 @@ describe("programmes", () => {
   });
 
   it("conserve à la suite les exercices absents de la liste réordonnée", () => {
-    const program = store().createProgram("PPL");
-    store().toggleExerciseInDay(program.id, "lundi", "squat");
-    store().toggleExerciseInDay(program.id, "lundi", "fantome-importe");
-    store().toggleExerciseInDay(program.id, "lundi", "leg-curl");
+    const { program, workout } = programWithWorkout();
+    store().toggleExerciseInWorkout(program.id, workout.id, "squat");
+    store().toggleExerciseInWorkout(program.id, workout.id, "fantome-importe");
+    store().toggleExerciseInWorkout(program.id, workout.id, "leg-curl");
 
-    store().reorderDay(program.id, "lundi", ["leg-curl", "squat"]);
+    store().reorderWorkout(program.id, workout.id, ["leg-curl", "squat"]);
 
-    expect(store().programs[0]?.days.lundi).toEqual([
+    expect(plannedExercises()).toEqual([
       "leg-curl",
       "squat",
       "fantome-importe",
@@ -270,12 +285,12 @@ describe("programmes", () => {
   });
 
   it("ignore un réordonnancement sur un programme inconnu", () => {
-    const program = store().createProgram("PPL");
-    store().toggleExerciseInDay(program.id, "lundi", "squat");
+    const { program, workout } = programWithWorkout();
+    store().toggleExerciseInWorkout(program.id, workout.id, "squat");
 
-    store().reorderDay("inexistant", "lundi", ["leg-curl"]);
+    store().reorderWorkout("inexistant", workout.id, ["leg-curl"]);
 
-    expect(store().programs[0]?.days.lundi).toEqual(["squat"]);
+    expect(plannedExercises()).toEqual(["squat"]);
   });
 
   it("bascule sur un autre programme quand le programme suivi est supprimé", () => {
@@ -287,16 +302,19 @@ describe("programmes", () => {
     expect(store().activeProgramId).toBe(second.id);
   });
 
-  it("restaure un programme supprimé, son rang et son statut", () => {
+  it("restaure un programme supprimé, ses séances et son statut", () => {
     const first = store().createProgram("PPL");
+    const workout = store().createWorkout(first.id, "Jambes")!;
+    store().assignWorkout(first.id, "mardi", workout.id);
+    store().toggleExerciseInWorkout(first.id, workout.id, "squat");
     store().createProgram("Full body");
-    store().toggleExerciseInDay(first.id, "mardi", "squat");
 
     store().deleteProgram(first.id);
     store().undoDelete();
 
     expect(store().programs[0]?.name).toBe("PPL");
-    expect(store().programs[0]?.days.mardi).toEqual(["squat"]);
+    expect(store().programs[0]?.workouts[0]?.exercises).toEqual(["squat"]);
+    expect(store().programs[0]?.days.mardi).toEqual([workout.id]);
     expect(store().activeProgramId).toBe(first.id);
   });
 });
@@ -320,26 +338,26 @@ describe("masquer un suivi", () => {
 
 describe("suppression et programmes", () => {
   it("retire l'exercice supprimé des séances qui l'utilisaient", () => {
-    const program = store().createProgram("PPL");
-    store().toggleExerciseInDay(program.id, "lundi", "squat");
-    store().toggleExerciseInDay(program.id, "jeudi", "squat");
+    const { program, workout } = programWithWorkout();
+    store().toggleExerciseInWorkout(program.id, workout.id, "squat");
+    store().toggleExerciseInWorkout(program.id, workout.id, "squat");
 
     store().removeExercise("squat");
 
-    expect(store().programs[0]?.days.lundi).toEqual([]);
-    expect(store().programs[0]?.days.jeudi).toEqual([]);
+    expect(plannedExercises()).toEqual([]);
+    expect(plannedExercises()).toEqual([]);
   });
 
   it("le remet à sa place dans chaque séance à l'annulation", () => {
-    const program = store().createProgram("PPL");
-    store().toggleExerciseInDay(program.id, "lundi", "presse-a-cuisses");
-    store().toggleExerciseInDay(program.id, "lundi", "squat");
-    store().toggleExerciseInDay(program.id, "lundi", "leg-curl");
+    const { program, workout } = programWithWorkout();
+    store().toggleExerciseInWorkout(program.id, workout.id, "presse-a-cuisses");
+    store().toggleExerciseInWorkout(program.id, workout.id, "squat");
+    store().toggleExerciseInWorkout(program.id, workout.id, "leg-curl");
 
     store().removeExercise("squat");
     store().undoDelete();
 
-    expect(store().programs[0]?.days.lundi).toEqual([
+    expect(plannedExercises()).toEqual([
       "presse-a-cuisses",
       "squat",
       "leg-curl",
