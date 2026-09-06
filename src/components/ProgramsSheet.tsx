@@ -13,7 +13,7 @@ interface ProgramsSheetProps {
 }
 
 function countExercises(program: Program): number {
-  return WEEKDAYS.reduce((total, day) => total + program.days[day.id].length, 0);
+  return program.workouts.reduce((total, workout) => total + workout.exercises.length, 0);
 }
 
 function countDays(program: Program): number {
@@ -27,6 +27,7 @@ export function ProgramsSheet({ open, onClose, onDeleted }: ProgramsSheetProps) 
   const renameProgram = useTrackerStore((state) => state.renameProgram);
   const deleteProgram = useTrackerStore((state) => state.deleteProgram);
   const setActiveProgram = useTrackerStore((state) => state.setActiveProgram);
+  const deleteWorkout = useTrackerStore((state) => state.deleteWorkout);
 
   const [draft, setDraft] = useState("");
 
@@ -110,9 +111,40 @@ export function ProgramsSheet({ open, onClose, onDeleted }: ProgramsSheetProps) 
                 </div>
 
                 <p className="pl-7 text-xs text-ink-faint">
-                  {countExercises(program)} exercices sur {countDays(program)} jour
+                  {program.workouts.length} séance{program.workouts.length > 1 ? "s" : ""} ·{" "}
+                  {countExercises(program)} exercices · {countDays(program)} jour
+                  {countDays(program) > 1 ? "s" : ""} occupé
                   {countDays(program) > 1 ? "s" : ""}
                 </p>
+
+                {program.workouts.length > 0 ? (
+                  <ul className="flex flex-col gap-1 pl-7">
+                    {program.workouts.map((workout) => (
+                      <li
+                        key={workout.id}
+                        className="flex items-center gap-2 rounded-card bg-surface px-2.5 py-1.5"
+                      >
+                        <span className="min-w-0 flex-1 truncate text-xs font-semibold text-ink-muted">
+                          {workout.name}
+                          <span className="ml-2 font-normal text-ink-faint">
+                            {workout.exercises.length} exos
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            deleteWorkout(program.id, workout.id);
+                            onDeleted(`Séance « ${workout.name} » supprimée`);
+                          }}
+                          aria-label={`Supprimer la séance ${workout.name}`}
+                          className="flex size-6 shrink-0 items-center justify-center rounded-pill text-ink-faint transition-colors hover:bg-surface-hover hover:text-negative"
+                        >
+                          <span aria-hidden="true">×</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </li>
             );
           })}
