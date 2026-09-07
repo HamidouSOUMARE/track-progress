@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { formatCountdown } from "@/lib/session";
+import { useWakeLock } from "@/lib/use-wake-lock";
 
 export interface RestPeriod {
   /** Change à chaque nouveau repos pour relancer l'animation. */
@@ -37,6 +38,9 @@ export function RestTimer({ rest, onExtend, onDismiss }: RestTimerProps) {
   const reduceMotion = useReducedMotion();
   const [now, setNow] = useState(() => Date.now());
   const buzzedRef = useRef<number | null>(null);
+
+  // Tant que le repos est affiché, le téléphone posé sur le banc reste allumé.
+  useWakeLock(rest !== null);
 
   useEffect(() => {
     if (!rest) {

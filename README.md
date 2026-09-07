@@ -33,8 +33,9 @@ l'app le fait savoir.
 - **Charge et tonnage distingués** : la progression et les records se jugent sur la
   charge la plus lourde de la séance, jamais sur le volume — cinq séries au lieu de
   quatre ne font pas un record. Le tonnage s'affiche à part dans l'historique.
-- **Repos réglable par exercice** (aucun, 1 min, 1 min 30, 2 min, 3 min), décompte adossé
-  à un instant de fin pour ne pas dériver quand l'écran s'éteint.
+- **Repos réglable par exercice** (aucun, 1 min, 1 min 30, 2 min, 3 min), en plein écran,
+  décompte adossé à un instant de fin pour ne pas dériver. L'écran reste allumé pendant le
+  repos là où le navigateur le permet — le téléphone posé sur le banc ne se verrouille pas.
 - **Animation de célébration** quand une charge progresse, avec badge « record personnel ».
 - **Historique et sparkline** par exercice. Toute suppression — une performance, un
   suivi entier — s'annule pendant six secondes depuis une barre flottante, sans boîte
