@@ -8,9 +8,12 @@ export interface RestPeriod {
   /** Change à chaque nouveau repos pour relancer l'animation. */
   key: number;
   endsAt: number;
+  /** Durée totale, allongée en même temps que `endsAt` par le bouton +30 s. */
   seconds: number;
   exerciseName: string;
-  nextName: string | null;
+  setNumber: number;
+  targetSets: number;
+  message: string;
 }
 
 interface RestTimerProps {
@@ -80,15 +83,15 @@ export function RestTimer({ rest, onExtend, onDismiss }: RestTimerProps) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-70 flex flex-col items-center justify-center gap-8 bg-base/95 px-6 backdrop-blur-md"
+          className="fixed inset-0 z-70 flex flex-col items-center justify-center gap-8 bg-base px-6"
         >
           <span
             aria-hidden="true"
             className="pointer-events-none absolute inset-0"
             style={{
               background: over
-                ? "radial-gradient(60% 40% at 50% 45%, var(--color-accent-soft), transparent 70%)"
-                : "radial-gradient(60% 40% at 50% 45%, #1b2230, transparent 70%)",
+                ? "radial-gradient(55% 35% at 50% 45%, var(--color-accent-soft), transparent 70%)"
+                : "radial-gradient(55% 35% at 50% 45%, var(--color-surface-raised), transparent 70%)",
             }}
           />
 
@@ -141,15 +144,12 @@ export function RestTimer({ rest, onExtend, onDismiss }: RestTimerProps) {
             </div>
           </div>
 
-          <div className="relative flex flex-col items-center gap-1 text-center">
-            {rest.nextName ? (
-              <>
-                <span className="text-xs tracking-wide text-ink-faint uppercase">Ensuite</span>
-                <span className="text-lg font-bold text-ink">{rest.nextName}</span>
-              </>
-            ) : (
-              <span className="text-lg font-bold text-ink">{rest.exerciseName}</span>
-            )}
+          <div className="relative flex flex-col items-center gap-1.5 px-4 text-center">
+            <span className="text-xl font-bold text-balance text-ink">{rest.message}</span>
+            <span className="text-xs text-ink-faint">
+              Série {Math.min(rest.setNumber + 1, rest.targetSets)} sur {rest.targetSets} ·{" "}
+              {rest.exerciseName}
+            </span>
           </div>
 
           <div className="relative flex items-center gap-3">

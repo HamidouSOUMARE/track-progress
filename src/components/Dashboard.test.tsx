@@ -1,5 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -577,7 +578,7 @@ describe("parcours de suivi", () => {
     expect(progress.textContent).toMatch(/reste : leg curl/i);
   });
 
-  it("lance le repos et annonce l'exercice suivant", () => {
+  it("lance le repos et situe la série qui arrive", () => {
     planToday("squat", "leg-curl");
     useTrackerStore.getState().startTracking("squat", 100);
 
@@ -589,8 +590,42 @@ describe("parcours de suivi", () => {
 
     const timer = screen.getByRole("timer");
     expect(timer.textContent).toMatch(/1:3[01]/);
-    expect(timer.textContent).toMatch(/ensuite/i);
-    expect(timer.textContent).toMatch(/leg curl/i);
+    // On annonce la série à venir, pas l'exercice suivant : il reste des séries.
+    expect(timer.textContent).toMatch(/série 2 sur 3/i);
+    expect(timer.textContent).toMatch(/squat/i);
+  });
+
+  it("allonge l'anneau en même temps que le décompte", () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    try {
+      planToday("squat");
+      useTrackerStore.getState().startTracking("squat", 100);
+
+      render(<Dashboard />);
+
+      fireEvent.click(screen.getByRole("button", { name: /^squat —/i }));
+      completeSets(screen.getByRole("dialog", { name: "Squat" }), 8, 1);
+
+      const timer = screen.getByRole("timer");
+      fireEvent.click(within(timer).getByRole("button", { name: /\+30 s/i }));
+
+      // 90 s de repos + 30 s : le total devient 2 min.
+      act(() => {
+        vi.advanceTimersByTime(30_000);
+      });
+
+      // Il reste 1:30 sur 2:00, donc trois quarts d'anneau. Sans allonger la
+      // durée totale, le rapport serait resté à 1 et l'anneau plein.
+      expect(screen.getByRole("timer").textContent).toMatch(/1:30/);
+      const arc = screen.getByRole("timer").querySelector("circle[stroke-dashoffset]");
+      const dash = Number(arc?.getAttribute("stroke-dasharray") ?? "0");
+      const offset = Number(arc?.getAttribute("stroke-dashoffset") ?? "0");
+
+      expect(offset / dash).toBeCloseTo(0.25, 1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("ne lance pas de repos pour une mensuration", () => {

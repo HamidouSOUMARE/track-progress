@@ -36,7 +36,7 @@ interface UpdateSheetProps {
   /** Remonte une action réversible pour que le tableau de bord propose de l'annuler. */
   onUndoable: (message: string) => void;
   /** Lance le repos une fois la série enregistrée. */
-  onRestStart: (exercise: Exercise) => void;
+  onRestStart: (exercise: Exercise, setNumber: number) => void;
   /** Coupe le repos : l'exercice est terminé, on passe au suivant. */
   onRestStop: () => void;
 }
@@ -185,7 +185,6 @@ export function UpdateSheet({
       unit: active.unit,
       exerciseName: active.name,
     });
-    onRestStart(active);
     onClose();
   };
 
@@ -216,7 +215,7 @@ export function UpdateSheet({
       return;
     }
 
-    onRestStart(active);
+    onRestStart(active, result.setNumber);
   };
 
   const handleFinish = () => {

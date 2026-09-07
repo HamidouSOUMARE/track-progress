@@ -17,8 +17,8 @@ import { RestTimer, type RestPeriod } from "@/components/RestTimer";
 import { Toast, type ToastMessage } from "@/components/Toast";
 import { UpdateSheet } from "@/components/UpdateSheet";
 import { downloadSnapshot, readSnapshot } from "@/lib/backup";
-import { nextInSession, restSeconds } from "@/lib/session";
-import { todayWeekday } from "@/data/weekdays";
+import { restEncouragement } from "@/lib/encouragement";
+import { restSeconds, targetSets } from "@/lib/session";
 import { useHydrated, useTrackerStore } from "@/store/tracker-store";
 import type { Exercise } from "@/lib/types";
 
@@ -57,27 +57,22 @@ export function Dashboard() {
    * Le repos démarre à l'enregistrement. On annonce l'exercice suivant de la
    * séance du jour quand il y en a un : c'est ce qu'on veut lire en soufflant.
    */
-  const startRest = (exercise: Exercise) => {
+  const startRest = (exercise: Exercise, setNumber: number) => {
     const seconds = restSeconds(exercise);
     if (seconds <= 0) {
       return;
     }
 
-    const today = new Date();
-    const program = programs.find((item) => item.id === activeProgramId) ?? programs[0] ?? null;
-    // Les jours portent des séances : il faut les déplier pour obtenir les exercices.
-    const planned =
-      program?.days[todayWeekday(today)].flatMap(
-        (workoutId) => program.workouts.find((item) => item.id === workoutId)?.exercises ?? [],
-      ) ?? [];
-    const next = nextInSession(planned, exercises, trackings, exercise.id, today);
+    const target = targetSets(exercise);
 
     setRest({
       key: Date.now(),
       endsAt: Date.now() + seconds * 1000,
       seconds,
       exerciseName: exercise.name,
-      nextName: next?.name ?? null,
+      setNumber,
+      targetSets: target,
+      message: restEncouragement(setNumber, target),
     });
   };
 
@@ -274,7 +269,14 @@ export function Dashboard() {
         rest={rest}
         onExtend={(seconds) =>
           setRest((current) =>
-            current ? { ...current, endsAt: current.endsAt + seconds * 1000 } : current,
+            current
+              ? {
+                  ...current,
+                  endsAt: current.endsAt + seconds * 1000,
+                  // Sans allonger la durée totale, l'anneau resterait plein.
+                  seconds: current.seconds + seconds,
+                }
+              : current,
           )
         }
         onDismiss={() => setRest(null)}
