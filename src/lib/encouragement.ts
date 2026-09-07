@@ -45,3 +45,39 @@ export function celebrationKind(gain: number, record: boolean): CelebrationKind 
   }
   return gain > 0 ? "progress" : "steady";
 }
+
+/**
+ * Message affiché pendant le repos. Il parle de la série qui arrive, pas de
+ * celle qu'on vient de faire : c'est elle qu'il faut aller chercher.
+ */
+const REST_MESSAGES = {
+  last: [
+    "Dernière série, donne tout",
+    "La der des ders",
+    "Une dernière et c'est plié",
+    "Tout ce qu'il te reste",
+  ],
+  half: [
+    "Déjà à la moitié",
+    "Plus de la moitié de faite",
+    "Le plus dur est derrière",
+    "Ça se creuse, continue",
+  ],
+  first: ["Bien lancé", "La première est dans la poche", "Le plus dur, c'était de commencer"],
+  middle: ["On enchaîne", "Garde le rythme", "Ça avance", "Rien ne se perd, tout s'ajoute"],
+} as const;
+
+export function restEncouragement(setNumber: number, targetSets: number): string {
+  const next = setNumber + 1;
+
+  const pool =
+    next >= targetSets
+      ? REST_MESSAGES.last
+      : setNumber * 2 >= targetSets
+        ? REST_MESSAGES.half
+        : setNumber === 1
+          ? REST_MESSAGES.first
+          : REST_MESSAGES.middle;
+
+  return pool[Math.floor(Math.random() * pool.length)] ?? pool[0];
+}

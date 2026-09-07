@@ -124,34 +124,6 @@ export function suggestedReps(
   return previousSets.at(0)?.reps ?? exercise.targetRepsMax ?? null;
 }
 
-/**
- * Exercice suivant de la séance : le premier qui reste à faire après celui
- * qu'on vient d'enregistrer, sinon celui d'après dans l'ordre du programme.
- */
-export function nextInSession(
-  plannedIds: string[],
-  exercises: Exercise[],
-  trackings: Record<string, Tracking>,
-  currentId: string,
-  day: Date,
-): Exercise | null {
-  const position = plannedIds.indexOf(currentId);
-  if (position < 0) {
-    return null;
-  }
-
-  const byId = new Map(exercises.map((exercise) => [exercise.id, exercise]));
-
-  for (const id of plannedIds.slice(position + 1)) {
-    const exercise = byId.get(id);
-    if (exercise && !exercise.archived && !isDoneOn(trackings[id], day)) {
-      return exercise;
-    }
-  }
-
-  return null;
-}
-
 export function formatCountdown(seconds: number): string {
   const safe = Math.max(0, Math.ceil(seconds));
   const minutes = Math.floor(safe / 60);

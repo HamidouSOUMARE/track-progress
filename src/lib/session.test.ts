@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { restEncouragement } from "@/lib/encouragement";
 import {
   countDone,
   formatCountdown,
   isDoneOn,
   lastPerformance,
-  nextInSession,
   restSeconds,
 } from "@/lib/session";
 import type { Exercise, LogEntry, Tracking } from "@/lib/types";
@@ -91,54 +91,31 @@ describe("lastPerformance", () => {
   });
 });
 
-describe("nextInSession", () => {
-  const exercises = [exercise("a"), exercise("b"), exercise("c"), exercise("d")];
-  const planned = ["a", "b", "c", "d"];
-
-  it("propose le premier exercice restant après celui qu'on vient de faire", () => {
-    const next = nextInSession(planned, exercises, {}, "a", monday);
-
-    expect(next?.id).toBe("b");
-  });
-
-  it("saute ceux déjà faits aujourd'hui", () => {
-    const next = nextInSession(
-      planned,
-      exercises,
-      { b: tracking([entry(50, "2026-09-07T17:00:00")]) },
-      "a",
-      monday,
-    );
-
-    expect(next?.id).toBe("c");
-  });
-
-  it("saute les exercices masqués", () => {
-    const next = nextInSession(
-      planned,
-      [exercise("a"), exercise("b", { archived: true }), exercise("c"), exercise("d")],
-      {},
-      "a",
-      monday,
-    );
-
-    expect(next?.id).toBe("c");
-  });
-
-  it("ne propose rien après le dernier exercice", () => {
-    expect(nextInSession(planned, exercises, {}, "d", monday)).toBeNull();
-  });
-
-  it("ne propose rien pour un exercice hors de la séance", () => {
-    expect(nextInSession(planned, exercises, {}, "hors-programme", monday)).toBeNull();
-  });
-});
-
 describe("formatCountdown", () => {
   it("affiche un décompte lisible", () => {
     expect(formatCountdown(180)).toBe("3:00");
     expect(formatCountdown(95)).toBe("1:35");
     expect(formatCountdown(5)).toBe("0:05");
     expect(formatCountdown(-3)).toBe("0:00");
+  });
+});
+
+describe("restEncouragement", () => {
+  it("annonce la dernière série avant la dernière", () => {
+    expect(restEncouragement(3, 4)).toMatch(/dernière|der des ders|reste/i);
+    expect(restEncouragement(2, 3)).toMatch(/dernière|der des ders|reste/i);
+  });
+
+  it("salue la mi-parcours", () => {
+    expect(restEncouragement(2, 4)).toMatch(/moitié|plus dur|creuse/i);
+    expect(restEncouragement(3, 6)).toMatch(/moitié|plus dur|creuse/i);
+  });
+
+  it("encourage après la première série", () => {
+    expect(restEncouragement(1, 4)).toMatch(/lancé|poche|commencer/i);
+  });
+
+  it("garde un message pour les séries intermédiaires", () => {
+    expect(restEncouragement(2, 8)).toMatch(/enchaîne|rythme|avance|ajoute/i);
   });
 });
