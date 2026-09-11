@@ -62,8 +62,10 @@ l'app le fait savoir.
   d'exemple, généré depuis les types de l'app, documente le format attendu et s'affiche
   automatiquement quand un fichier est refusé.
 
-Les données restent dans le navigateur (`localStorage`) : pas de compte, pas de serveur,
-utilisable hors-ligne à la salle.
+Les données restent dans le navigateur (`localStorage`) : pas de compte, pas de serveur.
+Un service worker met la coquille de l'app en cache, donc elle s'ouvre même sans réseau et
+s'installe sur l'écran d'accueil. La page passe toujours par le réseau en premier : une
+version périmée ne peut pas s'installer durablement.
 
 ## Démarrer
 
