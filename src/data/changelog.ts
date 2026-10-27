@@ -28,7 +28,7 @@ export const RELEASES: readonly Release[] = [
         kind: "nouveau",
         title: "Programmes tout prêts",
         description:
-          "Dix programmes, de Débuter au Split par muscle, de 2 à 5 jours par semaine. À retrouver dans Mes programmes.",
+          "Dix programmes, de Débuter au Split par muscle, de 2 à 5 jours par semaine, posés sur les jours de ton choix. À retrouver dans Mes programmes.",
       },
       {
         kind: "nouveau",

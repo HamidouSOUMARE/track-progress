@@ -5,9 +5,9 @@ import {
   type TemplateDays,
   type TemplateSlot,
 } from "@/data/program-templates";
-import { emptyWeek } from "@/data/weekdays";
+import { WEEKDAYS, emptyWeek } from "@/data/weekdays";
 import { createId } from "@/lib/id";
-import type { Exercise, Program, Workout } from "@/lib/types";
+import type { Exercise, Program, WeekdayId, Workout } from "@/lib/types";
 
 export interface AdoptedTemplate {
   exercises: Exercise[];
@@ -39,6 +39,31 @@ export function variantFor(template: ProgramTemplate, days: TemplateDays) {
   return template.variants.find((variant) => variant.days === days) ?? null;
 }
 
+/** Remet les jours choisis dans l'ordre de la semaine, quel que soit l'ordre des taps. */
+export function sortWeekdays(days: readonly WeekdayId[]): WeekdayId[] {
+  const order = WEEKDAYS.map((weekday) => weekday.id);
+  return [...days].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+}
+
+/** Autant de jours distincts que de séances prévues par le rythme. */
+export function isValidSchedule(schedule: readonly WeekdayId[], days: TemplateDays): boolean {
+  return schedule.length === days && new Set(schedule).size === days;
+}
+
+/**
+ * Deux séances d'affilée, dimanche puis lundi compris. Signalé seulement quand
+ * le rythme laisse la place de les espacer : au-delà de trois jours, c'est inévitable.
+ */
+export function hasAvoidableBackToBack(schedule: readonly WeekdayId[]): boolean {
+  if (schedule.length > 3) {
+    return false;
+  }
+
+  const order = WEEKDAYS.map((weekday) => weekday.id);
+  const positions = new Set(schedule.map((day) => order.indexOf(day)));
+  return [...positions].some((position) => positions.has((position + 1) % order.length));
+}
+
 export function templateProgramName(template: ProgramTemplate, days: TemplateDays): string {
   return `${template.name} · ${days} jours`;
 }
@@ -47,17 +72,21 @@ export function templateProgramName(template: ProgramTemplate, days: TemplateDay
  * Copie un modèle dans les données de l'utilisateur : le programme lui
  * appartient ensuite, il le modifie comme n'importe quel autre. Les exercices
  * déjà suivis sont repris tels quels, historique compris ; seuls les absents
- * sont ajoutés depuis le catalogue.
+ * sont ajoutés depuis le catalogue. Les séances se posent dans l'ordre de la
+ * semaine sur les jours choisis.
  */
 export function adoptTemplate(
   template: ProgramTemplate,
   days: TemplateDays,
   current: Exercise[],
+  schedule: readonly WeekdayId[] = DAY_LAYOUTS[days],
 ): AdoptedTemplate | null {
   const variant = variantFor(template, days);
-  if (!variant) {
+  if (!variant || !isValidSchedule(schedule, days)) {
     return null;
   }
+
+  const trainingDays = sortWeekdays(schedule);
 
   const exercises = new Map(current.map((exercise) => [exercise.id, exercise]));
   const order = current.map((exercise) => exercise.id);
@@ -90,7 +119,7 @@ export function adoptTemplate(
       workouts.set(session.key, created);
     }
 
-    const day = DAY_LAYOUTS[days][index];
+    const day = trainingDays[index];
     if (day) {
       week[day].push(created.id);
     }

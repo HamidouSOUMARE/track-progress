@@ -998,4 +998,29 @@ describe("parcours de suivi", () => {
 
     expect(screen.getByRole("dialog", { name: /quoi de neuf/i })).toBeDefined();
   });
+  it("pose un programme tout prêt sur les jours choisis", () => {
+    render(<Dashboard />);
+
+    fireEvent.click(screen.getByRole("button", { name: /choisir un programme tout prêt/i }));
+    const sheet = screen.getByRole("dialog", { name: /programmes tout prêts/i });
+    fireEvent.click(within(sheet).getByRole("button", { name: /^force 5×5/i }));
+    fireEvent.click(within(sheet).getByRole("button", { name: /^3 jours$/i }));
+
+    // Lundi, mercredi, vendredi par défaut : on passe le vendredi au samedi.
+    fireEvent.click(within(sheet).getByRole("button", { name: /^vendredi$/i }));
+    const follow = within(sheet).getByRole("button", { name: /suivre ce programme/i });
+    expect(sheet.textContent).toMatch(/choisis encore 1 jour/i);
+    expect((follow as HTMLButtonElement).disabled).toBe(true);
+
+    fireEvent.click(within(sheet).getByRole("button", { name: /^samedi$/i }));
+    expect((follow as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(follow);
+
+    const program = useTrackerStore.getState().programs[0]!;
+    const [a, b] = program.workouts;
+    expect(program.days.lundi).toEqual([a?.id]);
+    expect(program.days.mercredi).toEqual([b?.id]);
+    expect(program.days.samedi).toEqual([a?.id]);
+    expect(program.days.vendredi).toEqual([]);
+  });
 });

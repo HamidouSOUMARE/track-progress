@@ -58,7 +58,8 @@ l'app le fait savoir.
   fois et alimente la vue Séance.
 - **Programmes tout prêts** : Débuter, Corps complet, Haut / Bas, Push Pull Legs, Split
   par muscle, Force 5×5, Fessiers & jambes, Haut du corps, À la maison, Express 30 min —
-  chacun décliné de 2 à 5 jours par semaine. Le modèle est copié : il devient un programme
+  chacun décliné de 2 à 5 jours par semaine, sur les jours qu'on choisit (deux séances
+  d'affilée sont signalées quand on peut les espacer). Le modèle est copié : il devient un programme
   comme les autres. Les exercices déjà suivis gardent leurs réglages et leur historique.
 - **Nouveautés** annoncées une fois par version à l'ouverture (jamais au premier
   lancement), et consultables en bas de page. Une version publiée pendant que l'app est

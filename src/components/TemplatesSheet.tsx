@@ -15,8 +15,9 @@ import {
   type TemplateWorkout,
 } from "@/data/program-templates";
 import { WEEKDAYS } from "@/data/weekdays";
+import { hasAvoidableBackToBack, isValidSchedule, sortWeekdays } from "@/lib/templates";
 import { useTrackerStore } from "@/store/tracker-store";
-import type { Program } from "@/lib/types";
+import type { Program, WeekdayId } from "@/lib/types";
 
 interface TemplatesSheetProps {
   open: boolean;
@@ -40,15 +41,21 @@ function daysRange(template: ProgramTemplate): string {
   return `${days.join(" · ")} j / sem.`;
 }
 
-/** Séances distinctes du rythme choisi, avec les jours où chacune revient. */
-function weekPlan(template: ProgramTemplate, days: TemplateDays) {
+/**
+ * Séances distinctes du rythme choisi, avec les jours où chacune revient. Tant
+ * que tous les jours ne sont pas choisis, les séances restantes n'en ont pas.
+ */
+function weekPlan(template: ProgramTemplate, days: TemplateDays, schedule: WeekdayId[]) {
   const variant = template.variants.find((item) => item.days === days);
   const plan = new Map<string, { workout: TemplateWorkout; days: string[] }>();
+  const ordered = sortWeekdays(schedule);
 
   variant?.sessions.forEach((session, index) => {
-    const weekday = WEEKDAYS.find((item) => item.id === DAY_LAYOUTS[days][index]);
+    const weekday = WEEKDAYS.find((item) => item.id === ordered[index]);
     const entry = plan.get(session.key) ?? { workout: session, days: [] };
-    entry.days.push(weekday?.label ?? "");
+    if (weekday) {
+      entry.days.push(weekday.label);
+    }
     plan.set(session.key, entry);
   });
 
@@ -66,6 +73,7 @@ export function TemplatesSheet({ open, onClose, onAdopted }: TemplatesSheetProps
   const [filter, setFilter] = useState<TemplateDays | null>(null);
   const [selected, setSelected] = useState<ProgramTemplate | null>(null);
   const [days, setDays] = useState<TemplateDays>(2);
+  const [schedule, setSchedule] = useState<WeekdayId[]>([...DAY_LAYOUTS[2]]);
   const topRef = useRef<HTMLDivElement>(null);
 
   const owned = new Map(exercises.map((exercise) => [exercise.id, exercise]));
@@ -77,9 +85,21 @@ export function TemplatesSheet({ open, onClose, onAdopted }: TemplatesSheetProps
       )
     : PROGRAM_TEMPLATES;
 
+  /** Changer de rythme repart de la répartition conseillée pour ce rythme. */
+  const chooseDays = (next: TemplateDays) => {
+    setDays(next);
+    setSchedule([...DAY_LAYOUTS[next]]);
+  };
+
+  const toggleDay = (day: WeekdayId) => {
+    setSchedule((current) =>
+      current.includes(day) ? current.filter((item) => item !== day) : [...current, day],
+    );
+  };
+
   const openTemplate = (template: ProgramTemplate) => {
     const preferred = template.variants.find((variant) => variant.days === filter);
-    setDays(preferred?.days ?? template.variants[0]!.days);
+    chooseDays(preferred?.days ?? template.variants[0]!.days);
     setSelected(template);
     topRef.current?.scrollIntoView?.({ block: "start" });
   };
@@ -89,7 +109,9 @@ export function TemplatesSheet({ open, onClose, onAdopted }: TemplatesSheetProps
     setSelected(null);
   };
 
-  const plan = selected ? weekPlan(selected, days) : [];
+  const plan = selected ? weekPlan(selected, days, schedule) : [];
+  const scheduleReady = isValidSchedule(schedule, days);
+  const missing = days - schedule.length;
   const added = new Set(
     plan.flatMap(({ workout }) =>
       workout.slots.map((slot) => slot.exerciseId).filter((id) => !owned.has(id)),
@@ -138,13 +160,54 @@ export function TemplatesSheet({ open, onClose, onAdopted }: TemplatesSheetProps
                   key={variant.days}
                   type="button"
                   aria-pressed={variant.days === days}
-                  onClick={() => setDays(variant.days)}
+                  onClick={() => chooseDays(variant.days)}
                   className={`${PILL_BASE} ${variant.days === days ? PILL_ON : PILL_OFF}`}
                 >
                   {variant.days} jours
                 </button>
               ))}
             </div>
+          </fieldset>
+
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1 text-xs font-medium text-ink-muted">
+              Jours d&apos;entraînement
+            </legend>
+            <div className="grid grid-cols-7 gap-1.5">
+              {WEEKDAYS.map((weekday) => {
+                const on = schedule.includes(weekday.id);
+
+                return (
+                  <button
+                    key={weekday.id}
+                    type="button"
+                    aria-pressed={on}
+                    aria-label={weekday.label}
+                    title={weekday.label}
+                    onClick={() => toggleDay(weekday.id)}
+                    className={`flex aspect-square items-center justify-center rounded-pill border text-sm font-bold transition-colors ${
+                      on
+                        ? "border-accent bg-accent text-accent-ink"
+                        : "border-line bg-surface-raised text-ink-muted hover:text-ink"
+                    }`}
+                  >
+                    {weekday.letter}
+                  </button>
+                );
+              })}
+            </div>
+            <p
+              aria-live="polite"
+              className={`text-xs ${scheduleReady ? "text-ink-faint" : "text-accent"}`}
+            >
+              {missing > 0
+                ? `Choisis encore ${missing} jour${missing > 1 ? "s" : ""}.`
+                : missing < 0
+                  ? `Retire ${-missing} jour${missing < -1 ? "s" : ""} : ce rythme compte ${days} séances.`
+                  : hasAvoidableBackToBack(schedule)
+                    ? "Deux séances d'affilée : un jour de repos entre les deux aide à récupérer."
+                    : "Les séances se suivent dans l'ordre de la semaine."}
+            </p>
           </fieldset>
 
           <ul className="flex flex-col gap-2">
@@ -155,7 +218,9 @@ export function TemplatesSheet({ open, onClose, onAdopted }: TemplatesSheetProps
               >
                 <div className="flex items-baseline justify-between gap-3">
                   <h3 className="text-sm font-bold text-ink">{workout.name}</h3>
-                  <span className="text-xs text-accent">{on.join(", ")}</span>
+                  <span className="text-xs text-accent">
+                    {on.length > 0 ? on.join(", ") : "Jour à choisir"}
+                  </span>
                 </div>
                 <ul className="flex flex-col gap-1">
                   {workout.slots.map((slot) => (
@@ -179,14 +244,15 @@ export function TemplatesSheet({ open, onClose, onAdopted }: TemplatesSheetProps
           <div className="flex flex-col gap-2">
             <button
               type="button"
+              disabled={!scheduleReady}
               onClick={() => {
-                const program = adoptTemplate(selected.id, days);
+                const program = adoptTemplate(selected.id, days, schedule);
                 if (program) {
                   close();
                   onAdopted(program);
                 }
               }}
-              className="w-full rounded-card bg-accent px-4 py-3.5 text-base font-bold text-accent-ink transition-transform hover:bg-accent-strong active:scale-[0.99]"
+              className="w-full rounded-card bg-accent px-4 py-3.5 text-base font-bold text-accent-ink transition-transform hover:bg-accent-strong active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
             >
               Suivre ce programme
             </button>

@@ -134,7 +134,11 @@ interface TrackerState extends TrackerSnapshot {
   undoDelete: () => void;
   createProgram: (name: string) => Program;
   /** Copie un programme tout prêt et le suit aussitôt. */
-  adoptTemplate: (templateId: string, days: TemplateDays) => Program | null;
+  adoptTemplate: (
+    templateId: string,
+    days: TemplateDays,
+    schedule?: readonly WeekdayId[],
+  ) => Program | null;
   renameProgram: (programId: string, name: string) => void;
   deleteProgram: (programId: string) => void;
   setActiveProgram: (programId: string | null) => void;
@@ -559,9 +563,11 @@ export const useTrackerStore = create<TrackerState>()(
         return program;
       },
 
-      adoptTemplate: (templateId, days) => {
+      adoptTemplate: (templateId, days, schedule) => {
         const template = findTemplate(templateId);
-        const adopted = template ? adoptTemplate(template, days, get().exercises) : null;
+        const adopted = template
+          ? adoptTemplate(template, days, get().exercises, schedule)
+          : null;
         if (!adopted) {
           return null;
         }

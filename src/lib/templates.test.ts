@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDefaultExercises, findCatalogEntry } from "@/data/exercise-catalog";
 import { DAY_LAYOUTS, PROGRAM_TEMPLATES, findTemplate } from "@/data/program-templates";
-import { adoptTemplate } from "@/lib/templates";
+import { adoptTemplate, hasAvoidableBackToBack } from "@/lib/templates";
 import type { Exercise } from "@/lib/types";
 
 describe("modèles de programmes", () => {
@@ -96,7 +96,41 @@ describe("adoptTemplate", () => {
     );
   });
 
+  it("pose les séances sur les jours choisis, dans l'ordre de la semaine", () => {
+    // Choisis dans le désordre : samedi, mardi, jeudi.
+    const adopted = adoptTemplate(force, 3, buildDefaultExercises(), [
+      "samedi",
+      "mardi",
+      "jeudi",
+    ])!;
+    const [a, b] = adopted.program.workouts;
+
+    expect(adopted.program.days.mardi).toEqual([a?.id]);
+    expect(adopted.program.days.jeudi).toEqual([b?.id]);
+    expect(adopted.program.days.samedi).toEqual([a?.id]);
+    expect(adopted.program.days.lundi).toEqual([]);
+  });
+
+  it("refuse des jours qui ne correspondent pas au rythme", () => {
+    const current = buildDefaultExercises();
+
+    expect(adoptTemplate(force, 3, current, ["lundi", "mardi"])).toBeNull();
+    expect(adoptTemplate(force, 2, current, ["lundi", "lundi"])).toBeNull();
+  });
+
   it("refuse un rythme que le modèle ne propose pas", () => {
     expect(adoptTemplate(force, 5, buildDefaultExercises())).toBeNull();
+  });
+});
+
+describe("hasAvoidableBackToBack", () => {
+  it("repère deux séances d'affilée, du dimanche au lundi compris", () => {
+    expect(hasAvoidableBackToBack(["lundi", "mardi", "vendredi"])).toBe(true);
+    expect(hasAvoidableBackToBack(["dimanche", "lundi"])).toBe(true);
+    expect(hasAvoidableBackToBack(["lundi", "mercredi", "vendredi"])).toBe(false);
+  });
+
+  it("se tait quand le rythme ne laisse pas le choix", () => {
+    expect(hasAvoidableBackToBack(["lundi", "mardi", "jeudi", "vendredi"])).toBe(false);
   });
 });
