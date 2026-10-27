@@ -11,9 +11,7 @@ import { mergeSnapshots } from "@/lib/merge";
 import { sanitizeExercise, sanitizeSnapshot } from "@/lib/sanitize";
 import {
   DEFAULT_WARMUP_REST_SECONDS,
-  DEFAULT_WARMUP_SECONDS,
   MAX_REST_SECONDS,
-  MAX_WARMUP_SECONDS,
   clampDuration,
   entryOn,
   entrySeries,
@@ -121,8 +119,6 @@ export interface TrackerSnapshot {
 interface TrackerState extends TrackerSnapshot {
   lastDeletion: Deletion | null;
   selectedDay: SelectedDay | null;
-  /** Dernière durée d'échauffement choisie, reproposée la fois suivante. */
-  warmupSeconds: number;
   /** Repos enchaîné après l'échauffement, avant la première série. 0 pour aucun. */
   warmupRestSeconds: number;
   /** Dernière version dont les nouveautés ont été vues. */
@@ -147,7 +143,6 @@ interface TrackerState extends TrackerSnapshot {
   deleteProgram: (programId: string) => void;
   setActiveProgram: (programId: string | null) => void;
   selectDay: (day: WeekdayId) => void;
-  setWarmupSeconds: (seconds: number) => void;
   setWarmupRestSeconds: (seconds: number) => void;
   markReleaseSeen: (releaseId: string) => void;
   createWorkout: (programId: string, name: string) => Workout | null;
@@ -266,7 +261,6 @@ export const useTrackerStore = create<TrackerState>()(
       activeProgramId: null,
       lastDeletion: null,
       selectedDay: null,
-      warmupSeconds: DEFAULT_WARMUP_SECONDS,
       warmupRestSeconds: DEFAULT_WARMUP_REST_SECONDS,
       lastSeenRelease: null,
 
@@ -623,10 +617,6 @@ export const useTrackerStore = create<TrackerState>()(
         set({ selectedDay: { day, date: todayStamp() } });
       },
 
-      setWarmupSeconds: (seconds) => {
-        set({ warmupSeconds: clampDuration(seconds, MAX_WARMUP_SECONDS) });
-      },
-
       setWarmupRestSeconds: (seconds) => {
         set({ warmupRestSeconds: clampDuration(seconds, MAX_REST_SECONDS) });
       },
@@ -890,7 +880,6 @@ export const useTrackerStore = create<TrackerState>()(
         programs,
         activeProgramId,
         selectedDay,
-        warmupSeconds,
         warmupRestSeconds,
         lastSeenRelease,
       }) => ({
@@ -899,7 +888,6 @@ export const useTrackerStore = create<TrackerState>()(
         programs,
         activeProgramId,
         selectedDay,
-        warmupSeconds,
         warmupRestSeconds,
         lastSeenRelease,
       }),
@@ -909,7 +897,6 @@ export const useTrackerStore = create<TrackerState>()(
       migrate: (persisted, version) => {
         const preferences = persisted as {
           selectedDay?: SelectedDay;
-          warmupSeconds?: number;
           warmupRestSeconds?: number;
           lastSeenRelease?: string;
         } | null;
@@ -917,10 +904,6 @@ export const useTrackerStore = create<TrackerState>()(
         return {
           ...migrateSnapshot(persisted, version),
           selectedDay: preferences?.selectedDay ?? null,
-          warmupSeconds: clampDuration(
-            preferences?.warmupSeconds ?? DEFAULT_WARMUP_SECONDS,
-            MAX_WARMUP_SECONDS,
-          ),
           warmupRestSeconds: clampDuration(
             preferences?.warmupRestSeconds ?? DEFAULT_WARMUP_REST_SECONDS,
             MAX_REST_SECONDS,

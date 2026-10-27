@@ -41,7 +41,7 @@ interface UpdateSheetProps {
   /** Coupe le repos : l'exercice est terminé, on passe au suivant. */
   onRestStop: () => void;
   /** Lance un échauffement, qui n'enregistre rien. */
-  onWarmup: (seconds: number, caption: string) => void;
+  onWarmup: (caption: string) => void;
 }
 
 interface Opened {
@@ -403,7 +403,7 @@ export function UpdateSheet({
         <WarmupLauncher
           align="center"
           className="mb-4"
-          onStart={(seconds) => onWarmup(seconds, `Avant ${active.name}`)}
+          onStart={() => onWarmup(`Avant ${active.name}`)}
         />
       ) : null}
 

@@ -21,6 +21,18 @@ export interface Release {
  */
 export const RELEASES: readonly Release[] = [
   {
+    id: "2026-10-27-echauffement-libre",
+    date: "2026-10-27",
+    notes: [
+      {
+        kind: "ameliore",
+        title: "Échauffement à ton rythme",
+        description:
+          "Plus de durée à choisir : un chrono compte, et tu appuies sur « Je suis prêt » quand tu l'es. Le repos d'après se règle sur ce même écran.",
+      },
+    ],
+  },
+  {
     id: "2026-10-27-repos-echauffement",
     date: "2026-10-27",
     notes: [

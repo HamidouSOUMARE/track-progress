@@ -5,9 +5,6 @@ import type { Exercise, LogEntry, SetLog, Tracking } from "@/lib/types";
 const DEFAULT_REST_SECONDS = 90;
 export const MAX_REST_SECONDS = 600;
 
-/** Échauffement proposé tant que l'utilisateur n'a pas choisi le sien. */
-export const DEFAULT_WARMUP_SECONDS = 300;
-export const MAX_WARMUP_SECONDS = 1800;
 /** Souffle entre l'échauffement et la première vraie série. */
 export const DEFAULT_WARMUP_REST_SECONDS = 60;
 

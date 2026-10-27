@@ -22,7 +22,6 @@ beforeEach(() => {
     programs: [],
     activeProgramId: null,
     lastDeletion: null,
-    warmupSeconds: 300,
     warmupRestSeconds: 60,
     // Les nouveautés ont leurs propres tests : on les tient à l'écart des autres.
     lastSeenRelease: RELEASES[0]?.id ?? null,
@@ -848,47 +847,6 @@ describe("parcours de suivi", () => {
 
     expect(screen.getByRole("heading", { name: /séance du test/i })).toBeDefined();
   });
-  it("lance un échauffement avant la séance sans rien enregistrer", () => {
-    planToday("squat");
-
-    render(<Dashboard />);
-
-    const progress = screen.getByLabelText(/avancement de la séance/i);
-    fireEvent.click(within(progress).getByRole("button", { name: /s'échauffer/i }));
-    fireEvent.click(within(progress).getByRole("button", { name: /^10 min$/i }));
-    fireEvent.click(within(progress).getByRole("button", { name: /lancer · 10 min \+ 1 min/i }));
-
-    const timer = screen.getByRole("timer");
-    expect(timer.textContent).toMatch(/10:0[01]/);
-    expect(timer.textContent).toMatch(/avant séance du test/i);
-
-    fireEvent.click(within(timer).getByRole("button", { name: /je suis prêt/i }));
-
-    // Ni performance ni avancement : l'échauffement ne compte pas.
-    expect(useTrackerStore.getState().trackings).toEqual({});
-    expect(screen.getByLabelText(/avancement de la séance/i).textContent).toMatch(/0\/1/);
-    // La durée choisie est reproposée la fois suivante.
-    expect(useTrackerStore.getState().warmupSeconds).toBe(600);
-  });
-
-  it("accepte une durée d'échauffement saisie à la main", () => {
-    useTrackerStore.getState().startTracking("squat", 100);
-
-    render(<Dashboard />);
-
-    const sheet = openExercise("Squat");
-    fireEvent.click(within(sheet).getByRole("button", { name: /s'échauffer/i }));
-    const duration = within(sheet).getByRole("group", { name: /durée de l'échauffement/i });
-    fireEvent.click(within(duration).getByRole("button", { name: /^autre…$/i }));
-    fireEvent.change(within(duration).getByLabelText(/^minutes$/i), { target: { value: "7" } });
-    fireEvent.change(within(duration).getByLabelText(/^secondes$/i), { target: { value: "30" } });
-    fireEvent.click(within(sheet).getByRole("button", { name: /lancer · 7 min 30/i }));
-
-    const timer = screen.getByRole("timer");
-    expect(timer.textContent).toMatch(/7:3[01]/);
-    expect(timer.textContent).toMatch(/avant squat/i);
-  });
-
   it("retire l'échauffement de la fiche une fois la première série validée", () => {
     useTrackerStore.getState().startTracking("squat", 100);
 
@@ -1029,55 +987,55 @@ describe("parcours de suivi", () => {
     expect(program.days.samedi).toEqual([a?.id]);
     expect(program.days.vendredi).toEqual([]);
   });
-  it("enchaîne un repos dès qu'on se dit prêt après l'échauffement", () => {
-    useTrackerStore.getState().startTracking("squat", 100);
-
-    render(<Dashboard />);
-
-    const sheet = openExercise("Squat");
-    fireEvent.click(within(sheet).getByRole("button", { name: /s'échauffer/i }));
-    const after = within(sheet).getByRole("group", { name: /repos ensuite/i });
-    fireEvent.click(within(after).getByRole("button", { name: /^2 min$/i }));
-    fireEvent.click(within(sheet).getByRole("button", { name: /lancer · 5 min \+ 2 min/i }));
-
-    const warmup = screen.getByRole("timer");
-    fireEvent.click(within(warmup).getByRole("button", { name: /je suis prêt/i }));
-
-    const timer = screen.getByRole("timer");
-    expect(timer.textContent).toMatch(/2:0[01]/);
-    expect(timer.textContent).toMatch(/après l'échauffement · avant squat/i);
-
-    // Le repos passé, plus rien ne s'enchaîne.
-    fireEvent.click(within(timer).getByRole("button", { name: /passer le repos/i }));
-    expect(useTrackerStore.getState().warmupRestSeconds).toBe(120);
-    expect(useTrackerStore.getState().trackings.squat?.entries).toEqual([]);
-  });
-
-  it("passe seul au repos quand l'échauffement s'écoule", () => {
+  it("lance un échauffement sans durée, qui compte depuis son début", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
 
     try {
-      useTrackerStore.setState({ warmupSeconds: 60 });
       planToday("squat");
 
       render(<Dashboard />);
 
       const progress = screen.getByLabelText(/avancement de la séance/i);
       fireEvent.click(within(progress).getByRole("button", { name: /s'échauffer/i }));
-      fireEvent.click(within(progress).getByRole("button", { name: /lancer · 1 min \+ 1 min/i }));
 
       act(() => {
-        vi.advanceTimersByTime(61_000);
+        vi.advanceTimersByTime(125_000);
       });
-      expect(screen.getByRole("timer").textContent).toMatch(/échauffement terminé/i);
 
-      act(() => {
-        vi.advanceTimersByTime(1_600);
-      });
-      expect(screen.getByRole("timer").textContent).toMatch(/après l'échauffement/i);
+      const timer = screen.getByRole("timer");
+      expect(timer.textContent).toMatch(/2:0[56]/);
+      expect(timer.textContent).toMatch(/échauffement/i);
+      expect(timer.textContent).toMatch(/avant séance du test/i);
+      // Aucune fin imposée : seul l'utilisateur arrête l'échauffement.
+      expect(within(timer).queryByRole("button", { name: /\+30 s/i })).toBeNull();
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("enchaîne le repos choisi dès qu'on se dit prêt, sans rien enregistrer", () => {
+    planToday("squat");
+
+    render(<Dashboard />);
+
+    const progress = screen.getByLabelText(/avancement de la séance/i);
+    fireEvent.click(within(progress).getByRole("button", { name: /s'échauffer/i }));
+
+    const warmup = screen.getByRole("timer");
+    const after = within(warmup).getByRole("group", { name: /repos ensuite/i });
+    fireEvent.click(within(after).getByRole("button", { name: /^autre…$/i }));
+    fireEvent.change(within(after).getByLabelText(/^minutes$/i), { target: { value: "1" } });
+    fireEvent.change(within(after).getByLabelText(/^secondes$/i), { target: { value: "30" } });
+    fireEvent.click(within(warmup).getByRole("button", { name: /je suis prêt/i }));
+
+    const rest = screen.getByRole("timer");
+    expect(rest.textContent).toMatch(/1:3[01]/);
+    expect(rest.textContent).toMatch(/après l'échauffement · avant séance du test/i);
+
+    // Le réglage est retenu pour la prochaine fois, et rien n'entre dans la séance.
+    expect(useTrackerStore.getState().warmupRestSeconds).toBe(90);
+    expect(useTrackerStore.getState().trackings).toEqual({});
+    expect(screen.getByLabelText(/avancement de la séance/i).textContent).toMatch(/0\/1/);
   });
 
   it("n'enchaîne rien quand le repos d'après est sur Aucun", async () => {
@@ -1088,8 +1046,8 @@ describe("parcours de suivi", () => {
 
     const sheet = openExercise("Squat");
     fireEvent.click(within(sheet).getByRole("button", { name: /s'échauffer/i }));
-    fireEvent.click(within(sheet).getByRole("button", { name: /^lancer · 5 min$/i }));
     const warmup = screen.getByRole("timer");
+    expect(warmup.textContent).toMatch(/avant squat/i);
     fireEvent.click(within(warmup).getByRole("button", { name: /je suis prêt/i }));
 
     await waitForElementToBeRemoved(() => screen.queryByRole("timer"));

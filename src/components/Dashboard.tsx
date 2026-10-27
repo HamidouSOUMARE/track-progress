@@ -14,7 +14,7 @@ import { LibraryView } from "@/components/LibraryView";
 import { ProgramsSheet } from "@/components/ProgramsSheet";
 import { SessionView } from "@/components/SessionView";
 import { TemplatesSheet } from "@/components/TemplatesSheet";
-import { RestTimer, type RestPeriod } from "@/components/RestTimer";
+import { RestTimer, type TimerPeriod } from "@/components/RestTimer";
 import { Toast, type ToastMessage } from "@/components/Toast";
 import { UpdateSheet } from "@/components/UpdateSheet";
 import { WhatsNewSheet } from "@/components/WhatsNewSheet";
@@ -47,6 +47,7 @@ export function Dashboard() {
   const undoDelete = useTrackerStore((state) => state.undoDelete);
   const lastSeenRelease = useTrackerStore((state) => state.lastSeenRelease);
   const warmupRestSeconds = useTrackerStore((state) => state.warmupRestSeconds);
+  const setWarmupRestSeconds = useTrackerStore((state) => state.setWarmupRestSeconds);
   const markReleaseSeen = useTrackerStore((state) => state.markReleaseSeen);
   const hydrated = useHydrated();
 
@@ -58,7 +59,7 @@ export function Dashboard() {
   const [celebration, setCelebration] = useState<CelebrationPayload | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [pendingImport, setPendingImport] = useState<ImportPreview | null>(null);
-  const [rest, setRest] = useState<RestPeriod | null>(null);
+  const [rest, setRest] = useState<TimerPeriod | null>(null);
   const [importHelp, setImportHelp] = useState<{ error: string | null } | null>(null);
   const [readingNews, setReadingNews] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -105,45 +106,38 @@ export function Dashboard() {
   };
 
   /**
-   * Même écran que le repos, mais rien n'est enregistré : il ne compte pas. Le
-   * repos d'après s'enchaîne seul, pour souffler avant la première série.
+   * Même écran que le repos, mais sans durée : on s'échauffe à son rythme et
+   * rien n'est enregistré. Le repos d'après s'enchaîne dès qu'on se dit prêt.
    */
-  const startWarmup = (seconds: number, caption: string) => {
-    // « Avant Squat » devient « Après l'échauffement · avant Squat ».
-    const context = `${caption.charAt(0).toLowerCase()}${caption.slice(1)}`;
-
+  const startWarmup = (caption: string) => {
     setRest({
       key: Date.now(),
       kind: "warmup",
-      endsAt: Date.now() + seconds * 1000,
-      seconds,
+      startedAt: Date.now(),
       message: warmupEncouragement(),
       caption,
-      next:
-        warmupRestSeconds > 0
-          ? {
-              seconds: warmupRestSeconds,
-              message: warmupRestEncouragement(),
-              caption: `Après l'échauffement · ${context}`,
-            }
-          : undefined,
     });
   };
 
-  /** Fin d'un décompte, écoulé ou passé : on enchaîne s'il y a une suite. */
+  /** Fin d'un minuteur, écoulé ou passé : après l'échauffement vient le repos. */
   const endRest = () => {
-    setRest((current) =>
-      current?.next
-        ? {
-            key: Date.now(),
-            kind: "rest",
-            endsAt: Date.now() + current.next.seconds * 1000,
-            seconds: current.next.seconds,
-            message: current.next.message,
-            caption: current.next.caption,
-          }
-        : null,
-    );
+    setRest((current) => {
+      if (current?.kind !== "warmup" || warmupRestSeconds <= 0) {
+        return null;
+      }
+
+      // « Avant Squat » devient « Après l'échauffement · avant Squat ».
+      const context = `${current.caption.charAt(0).toLowerCase()}${current.caption.slice(1)}`;
+
+      return {
+        key: Date.now(),
+        kind: "rest",
+        endsAt: Date.now() + warmupRestSeconds * 1000,
+        seconds: warmupRestSeconds,
+        message: warmupRestEncouragement(),
+        caption: `Après l'échauffement · ${context}`,
+      };
+    });
   };
 
   const flash = (message: string, actionLabel?: string) => {
@@ -365,9 +359,11 @@ export function Dashboard() {
 
       <RestTimer
         rest={rest}
+        warmupRest={warmupRestSeconds}
+        onWarmupRestChange={setWarmupRestSeconds}
         onExtend={(seconds) =>
           setRest((current) =>
-            current
+            current?.kind === "rest"
               ? {
                   ...current,
                   endsAt: current.endsAt + seconds * 1000,

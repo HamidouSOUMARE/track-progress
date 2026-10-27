@@ -2,33 +2,41 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { formatCountdown } from "@/lib/session";
+import { DurationPicker } from "@/components/DurationPicker";
+import { MAX_REST_SECONDS, formatCountdown } from "@/lib/session";
 import { useWakeLock } from "@/lib/use-wake-lock";
 
-/** Repos entre deux séries, ou échauffement qui n'enregistre rien. */
-export type TimerKind = "rest" | "warmup";
-
-export interface RestPeriod {
-  /** Change à chaque nouveau repos pour relancer l'animation. */
+interface TimerBase {
+  /** Change à chaque nouveau minuteur pour relancer l'animation. */
   key: number;
-  kind: TimerKind;
-  endsAt: number;
-  /** Durée totale, allongée en même temps que `endsAt` par le bouton +30 s. */
-  seconds: number;
   message: string;
   /** Contexte sous le message : la série qui arrive, ou ce qu'on prépare. */
   caption: string;
-  /** Repos enchaîné à la fin, ou dès qu'on se dit prêt : celui d'après l'échauffement. */
-  next?: { seconds: number; message: string; caption: string };
 }
 
-const LABELS: Record<TimerKind, { running: string; over: string; skip: string }> = {
-  rest: { running: "Repos", over: "Repos terminé", skip: "Passer le repos" },
-  warmup: { running: "Échauffement", over: "Échauffement terminé", skip: "Je suis prêt" },
-};
+/** Repos entre deux séries : un décompte. */
+export interface RestPeriod extends TimerBase {
+  kind: "rest";
+  endsAt: number;
+  /** Durée totale, allongée en même temps que `endsAt` par le bouton +30 s. */
+  seconds: number;
+}
+
+/** Échauffement : sans durée, on s'arrête quand on se sent prêt. Rien n'est enregistré. */
+export interface WarmupPeriod extends TimerBase {
+  kind: "warmup";
+  startedAt: number;
+}
+
+export type TimerPeriod = RestPeriod | WarmupPeriod;
+
+const RESTS_AFTER_WARMUP = [0, 60, 120] as const;
 
 interface RestTimerProps {
-  rest: RestPeriod | null;
+  rest: TimerPeriod | null;
+  /** Repos enchaîné après l'échauffement, réglable depuis son écran. */
+  warmupRest: number;
+  onWarmupRestChange: (seconds: number) => void;
   onExtend: (seconds: number) => void;
   onDismiss: () => void;
 }
@@ -38,15 +46,20 @@ const RADIUS = 104;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 /** Délai avant de rendre l'écran, une fois le repos écoulé. */
 const LINGER_MS = 4000;
-/** Le temps de lire « terminé » avant que le repos suivant ne prenne la place. */
-const HANDOVER_MS = 1500;
 
 /**
  * Plein écran : les chiffres restent lisibles téléphone posé sur le banc. Le
  * décompte s'adosse à un instant de fin, pas à un compteur décrémenté, pour ne
- * pas dériver quand l'écran s'éteint.
+ * pas dériver quand l'écran s'éteint ; l'échauffement, lui, compte depuis son
+ * début.
  */
-export function RestTimer({ rest, onExtend, onDismiss }: RestTimerProps) {
+export function RestTimer({
+  rest,
+  warmupRest,
+  onWarmupRestChange,
+  onExtend,
+  onDismiss,
+}: RestTimerProps) {
   const reduceMotion = useReducedMotion();
   const [now, setNow] = useState(() => Date.now());
   const buzzedRef = useRef<number | null>(null);
@@ -63,8 +76,11 @@ export function RestTimer({ rest, onExtend, onDismiss }: RestTimerProps) {
     return () => window.clearInterval(id);
   }, [rest]);
 
-  const remaining = rest ? (rest.endsAt - now) / 1000 : 0;
-  const over = remaining <= 0;
+  const warmup = rest?.kind === "warmup";
+  const remaining = rest?.kind === "rest" ? (rest.endsAt - now) / 1000 : 0;
+  const elapsed = rest?.kind === "warmup" ? Math.max(0, (now - rest.startedAt) / 1000) : 0;
+  // Un échauffement n'est jamais « écoulé » : c'est l'utilisateur qui l'arrête.
+  const over = !warmup && remaining <= 0;
 
   useEffect(() => {
     if (!rest || !over || buzzedRef.current === rest.key) {
@@ -83,12 +99,12 @@ export function RestTimer({ rest, onExtend, onDismiss }: RestTimerProps) {
       return;
     }
 
-    const id = window.setTimeout(onDismiss, rest.next ? HANDOVER_MS : LINGER_MS);
+    const id = window.setTimeout(onDismiss, LINGER_MS);
     return () => window.clearTimeout(id);
   }, [rest, over, onDismiss]);
 
-  const ratio = rest ? Math.max(0, Math.min(1, remaining / rest.seconds)) : 0;
-  const labels = LABELS[rest?.kind ?? "rest"];
+  const ratio =
+    rest?.kind === "rest" ? Math.max(0, Math.min(1, remaining / rest.seconds)) : 0;
 
   return (
     <AnimatePresence>
@@ -128,19 +144,35 @@ export function RestTimer({ rest, onExtend, onDismiss }: RestTimerProps) {
                 stroke="var(--color-line)"
                 strokeWidth="8"
               />
-              <circle
-                cx="120"
-                cy="120"
-                r={RADIUS}
-                fill="none"
-                stroke="var(--color-accent)"
-                strokeWidth="8"
-                strokeLinecap="round"
-                strokeDasharray={CIRCUMFERENCE}
-                strokeDashoffset={CIRCUMFERENCE * (1 - ratio)}
-                transform="rotate(-90 120 120)"
-                style={{ transition: `stroke-dashoffset ${TICK_MS}ms linear` }}
-              />
+              {warmup ? (
+                // Pas de fin à montrer : un arc qui tourne dit seulement « en cours ».
+                <motion.circle
+                  cx="120"
+                  cy="120"
+                  r={RADIUS}
+                  fill="none"
+                  stroke="var(--color-accent)"
+                  strokeWidth="8"
+                  strokeLinecap="round"
+                  strokeDasharray={`${CIRCUMFERENCE * 0.22} ${CIRCUMFERENCE}`}
+                  animate={reduceMotion ? undefined : { rotate: 360 }}
+                  transition={{ duration: 2.4, ease: "linear", repeat: Infinity }}
+                />
+              ) : (
+                <circle
+                  cx="120"
+                  cy="120"
+                  r={RADIUS}
+                  fill="none"
+                  stroke="var(--color-accent)"
+                  strokeWidth="8"
+                  strokeLinecap="round"
+                  strokeDasharray={CIRCUMFERENCE}
+                  strokeDashoffset={CIRCUMFERENCE * (1 - ratio)}
+                  transform="rotate(-90 120 120)"
+                  style={{ transition: `stroke-dashoffset ${TICK_MS}ms linear` }}
+                />
+              )}
             </motion.svg>
 
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
@@ -153,10 +185,12 @@ export function RestTimer({ rest, onExtend, onDismiss }: RestTimerProps) {
                   over ? "text-accent" : "text-ink"
                 }`}
               >
-                {over ? "À toi" : formatCountdown(remaining)}
+                {over
+                  ? "À toi"
+                  : formatCountdown(warmup ? Math.floor(elapsed) : remaining)}
               </motion.span>
               <span className="text-xs font-medium tracking-[0.2em] text-ink-faint uppercase">
-                {over ? labels.over : labels.running}
+                {warmup ? "Échauffement" : over ? "Repos terminé" : "Repos"}
               </span>
             </div>
           </div>
@@ -166,22 +200,43 @@ export function RestTimer({ rest, onExtend, onDismiss }: RestTimerProps) {
             <span className="text-xs text-ink-faint">{rest.caption}</span>
           </div>
 
-          <div className="relative flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => onExtend(30)}
-              className="rounded-pill border border-line px-5 py-3 text-sm font-semibold text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
-            >
-              +30 s
-            </button>
-            <button
-              type="button"
-              onClick={onDismiss}
-              className="rounded-pill bg-accent px-6 py-3 text-sm font-bold text-accent-ink transition-transform active:scale-95"
-            >
-              {over ? "C'est parti" : labels.skip}
-            </button>
-          </div>
+          {warmup ? (
+            <div className="relative flex w-full max-w-xs flex-col items-center gap-6">
+              <button
+                type="button"
+                onClick={onDismiss}
+                className="rounded-pill bg-accent px-8 py-3 text-sm font-bold text-accent-ink transition-transform active:scale-95"
+              >
+                Je suis prêt
+              </button>
+              <DurationPicker
+                legend="Repos ensuite, avant la première série"
+                value={warmupRest}
+                presets={RESTS_AFTER_WARMUP}
+                max={MAX_REST_SECONDS}
+                zeroLabel="Aucun"
+                onChange={onWarmupRestChange}
+                hint="Rien n'est enregistré : l'échauffement ne compte pas dans ta séance."
+              />
+            </div>
+          ) : (
+            <div className="relative flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => onExtend(30)}
+                className="rounded-pill border border-line px-5 py-3 text-sm font-semibold text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
+              >
+                +30 s
+              </button>
+              <button
+                type="button"
+                onClick={onDismiss}
+                className="rounded-pill bg-accent px-6 py-3 text-sm font-bold text-accent-ink transition-transform active:scale-95"
+              >
+                {over ? "C'est parti" : "Passer le repos"}
+              </button>
+            </div>
+          )}
         </motion.div>
       ) : null}
     </AnimatePresence>

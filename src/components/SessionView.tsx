@@ -17,7 +17,7 @@ interface SessionViewProps {
   onOpenExercise: (exerciseId: string) => void;
   onManagePrograms: () => void;
   onBrowseTemplates: () => void;
-  onWarmup: (seconds: number, caption: string) => void;
+  onWarmup: (caption: string) => void;
 }
 
 /** Autres jours où la séance revient, pour prévenir avant de la modifier. */
@@ -290,11 +290,8 @@ export function SessionView({
               {doneCount === 0 ? (
                 <WarmupLauncher
                   className="mt-1"
-                  onStart={(seconds) =>
-                    onWarmup(
-                      seconds,
-                      `Avant ${dayWorkouts.map((workout) => workout.name).join(" + ")}`,
-                    )
+                  onStart={() =>
+                    onWarmup(`Avant ${dayWorkouts.map((workout) => workout.name).join(" + ")}`)
                   }
                 />
               ) : null}
