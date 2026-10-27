@@ -494,6 +494,10 @@ describe("parcours de suivi", () => {
     openExercise("Squat");
     expect(screen.queryByRole("dialog", { name: "Squat" })).not.toBeNull();
 
+    // La feuille refermée par le test précédent a lancé un retour que jsdom ne
+    // livre jamais : on laisse son repère expirer, comme le ferait un vrai geste.
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
     // Geste « retour » d'Android : le navigateur dépile puis émet popstate.
     window.dispatchEvent(new PopStateEvent("popstate"));
 

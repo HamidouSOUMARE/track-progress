@@ -18,6 +18,9 @@ interface SheetProps {
 let lastProgrammaticBack = 0;
 const PROGRAMMATIC_BACK_WINDOW_MS = 100;
 
+/** Chaque ouverture marque son entrée d'historique, pour la reconnaître ensuite. */
+let nextEntryId = 0;
+
 /** Feuille modale : ancrée en bas sur mobile, centrée sur grand écran. */
 export function Sheet({ open, title, onClose, children }: SheetProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -41,13 +44,27 @@ export function Sheet({ open, title, onClose, children }: SheetProps) {
     }
 
     let closedByBack = false;
-    // Une feuille qui s'ouvre rend caduc tout retour programmé en attente.
-    lastProgrammaticBack = 0;
-    window.history.pushState({ sheet: true }, "");
+    nextEntryId += 1;
+    const entry = nextEntryId;
+    // Une feuille peut s'ouvrir à l'instant où une autre se ferme : le retour
+    // programmé de celle-ci arrive alors après coup, et c'est cette nouvelle
+    // feuille qui le reçoit. Le repère doit survivre pour qu'elle l'ignore.
+    window.history.pushState({ sheet: entry }, "");
 
     const onPopState = () => {
       if (Date.now() - lastProgrammaticBack < PROGRAMMATIC_BACK_WINDOW_MS) {
         lastProgrammaticBack = 0;
+
+        // Ce retour a pu emporter l'entrée de cette feuille plutôt que celle de
+        // la précédente : sans elle, le geste retour suivant quitterait l'app.
+        const current: unknown = window.history.state;
+        const onSheetEntry =
+          typeof current === "object" && current !== null && "sheet" in current;
+        if (!onSheetEntry) {
+          window.history.pushState({ sheet: entry }, "");
+        } else if ((current as { sheet: unknown }).sheet !== entry) {
+          window.history.replaceState({ sheet: entry }, "");
+        }
         return;
       }
 
