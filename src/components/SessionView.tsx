@@ -16,6 +16,7 @@ import type { Exercise, Program, WeekdayId, Workout } from "@/lib/types";
 interface SessionViewProps {
   onOpenExercise: (exerciseId: string) => void;
   onManagePrograms: () => void;
+  onBrowseTemplates: () => void;
   onWarmup: (seconds: number, caption: string) => void;
 }
 
@@ -26,7 +27,12 @@ function otherDays(program: Program, workoutId: string, day: WeekdayId): string[
   ).map((weekday) => weekday.label.toLowerCase());
 }
 
-export function SessionView({ onOpenExercise, onManagePrograms, onWarmup }: SessionViewProps) {
+export function SessionView({
+  onOpenExercise,
+  onManagePrograms,
+  onBrowseTemplates,
+  onWarmup,
+}: SessionViewProps) {
   const exercises = useTrackerStore((state) => state.exercises);
   const trackings = useTrackerStore((state) => state.trackings);
   const programs = useTrackerStore((state) => state.programs);
@@ -59,13 +65,22 @@ export function SessionView({ onOpenExercise, onManagePrograms, onWarmup }: Sess
           Un programme réunit tes séances — Haut du corps, Jambes… — puis tu les poses sur
           les jours de la semaine. Changer de rythme ne demande alors que de les déplacer.
         </p>
-        <button
-          type="button"
-          onClick={onManagePrograms}
-          className="rounded-pill bg-accent px-4 py-2.5 text-sm font-bold text-accent-ink"
-        >
-          Créer un programme
-        </button>
+        <div className="flex flex-wrap justify-center gap-2">
+          <button
+            type="button"
+            onClick={onBrowseTemplates}
+            className="rounded-pill bg-accent px-4 py-2.5 text-sm font-bold text-accent-ink"
+          >
+            Choisir un programme tout prêt
+          </button>
+          <button
+            type="button"
+            onClick={onManagePrograms}
+            className="rounded-pill border border-line px-4 py-2.5 text-sm font-semibold text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
+          >
+            Créer le mien
+          </button>
+        </div>
       </section>
     );
   }

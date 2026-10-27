@@ -40,6 +40,56 @@ export const EXERCISE_CATALOG: readonly CatalogEntry[] = [
 ] as const;
 
 /**
+ * Exercices que seuls les programmes tout prêts font entrer dans la
+ * bibliothèque : on ne les impose pas d'office, la liste resterait chargée.
+ */
+export const PROGRAM_CATALOG: readonly CatalogEntry[] = [
+  { id: "developpe-halteres", name: "Développé couché haltères", group: "pectoraux", unit: "kg" },
+  { id: "pompes", name: "Pompes", group: "pectoraux", unit: "rep" },
+
+  { id: "rowing-haltere", name: "Rowing haltère", group: "dos", unit: "kg" },
+  { id: "tirage-horizontal", name: "Tirage horizontal", group: "dos", unit: "kg" },
+  { id: "rowing-inverse", name: "Rowing inversé", group: "dos", unit: "rep" },
+  { id: "superman", name: "Superman", group: "dos", unit: "rep" },
+
+  { id: "souleve-de-terre-roumain", name: "Soulevé de terre roumain", group: "jambes", unit: "kg" },
+  { id: "squat-bulgare", name: "Squat bulgare", group: "jambes", unit: "kg" },
+  { id: "goblet-squat", name: "Goblet squat", group: "jambes", unit: "kg" },
+  { id: "leg-extension", name: "Leg extension", group: "jambes", unit: "kg" },
+  { id: "squat-poids-du-corps", name: "Squat au poids du corps", group: "jambes", unit: "rep" },
+  { id: "fentes-poids-du-corps", name: "Fentes au poids du corps", group: "jambes", unit: "rep" },
+  { id: "chaise", name: "Chaise", group: "jambes", unit: "sec" },
+
+  { id: "hip-thrust", name: "Hip thrust", group: "fessiers", unit: "kg" },
+  { id: "abducteurs", name: "Abducteurs à la machine", group: "fessiers", unit: "kg" },
+  { id: "kickback-poulie", name: "Kickback à la poulie", group: "fessiers", unit: "kg" },
+  { id: "pont-fessier", name: "Pont fessier", group: "fessiers", unit: "rep" },
+
+  {
+    id: "developpe-halteres-assis",
+    name: "Développé haltères assis",
+    group: "epaules",
+    unit: "kg",
+  },
+  { id: "face-pull", name: "Face pull", group: "epaules", unit: "kg" },
+  { id: "pompes-piquees", name: "Pompes piquées", group: "epaules", unit: "rep" },
+
+  { id: "curl-marteau", name: "Curl marteau", group: "bras", unit: "kg" },
+  { id: "dips-banc", name: "Dips sur banc", group: "bras", unit: "rep" },
+
+  { id: "gainage-lateral", name: "Gainage latéral", group: "abdos", unit: "sec" },
+] as const;
+
+/** Une entrée du catalogue, quelle que soit la liste qui la porte. */
+export function findCatalogEntry(id: string): CatalogEntry | null {
+  return (
+    EXERCISE_CATALOG.find((entry) => entry.id === id) ??
+    PROGRAM_CATALOG.find((entry) => entry.id === id) ??
+    null
+  );
+}
+
+/**
  * Mesures prises sur le corps. Chacune porte le sens de son objectif : on gagne
  * des centimètres de bras, on en perd sur le tour de taille. L'utilisateur peut
  * inverser ce sens à tout moment depuis la fiche.

@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { buildDefaultExercises } from "@/data/exercise-catalog";
+import { findTemplate, type TemplateDays } from "@/data/program-templates";
 import { WEEKDAYS, emptyWeek, todayStamp } from "@/data/weekdays";
 import { createId } from "@/lib/id";
 import { mergeSnapshots } from "@/lib/merge";
@@ -19,6 +20,7 @@ import {
   targetSets,
 } from "@/lib/session";
 import { isRecord } from "@/lib/progress";
+import { adoptTemplate } from "@/lib/templates";
 import type {
   Exercise,
   Goal,
@@ -129,6 +131,8 @@ interface TrackerState extends TrackerSnapshot {
   setArchived: (exerciseId: string, archived: boolean) => void;
   undoDelete: () => void;
   createProgram: (name: string) => Program;
+  /** Copie un programme tout prêt et le suit aussitôt. */
+  adoptTemplate: (templateId: string, days: TemplateDays) => Program | null;
   renameProgram: (programId: string, name: string) => void;
   deleteProgram: (programId: string) => void;
   setActiveProgram: (programId: string | null) => void;
@@ -549,6 +553,23 @@ export const useTrackerStore = create<TrackerState>()(
         }));
 
         return program;
+      },
+
+      adoptTemplate: (templateId, days) => {
+        const template = findTemplate(templateId);
+        const adopted = template ? adoptTemplate(template, days, get().exercises) : null;
+        if (!adopted) {
+          return null;
+        }
+
+        set((state) => ({
+          exercises: adopted.exercises,
+          programs: [...state.programs, adopted.program],
+          // Choisir un programme, c'est vouloir le suivre dès maintenant.
+          activeProgramId: adopted.program.id,
+        }));
+
+        return adopted.program;
       },
 
       renameProgram: (programId, name) => {

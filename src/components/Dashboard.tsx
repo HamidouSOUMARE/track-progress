@@ -13,6 +13,7 @@ import { ImportHelpSheet } from "@/components/ImportHelpSheet";
 import { LibraryView } from "@/components/LibraryView";
 import { ProgramsSheet } from "@/components/ProgramsSheet";
 import { SessionView } from "@/components/SessionView";
+import { TemplatesSheet } from "@/components/TemplatesSheet";
 import { RestTimer, type RestPeriod } from "@/components/RestTimer";
 import { Toast, type ToastMessage } from "@/components/Toast";
 import { UpdateSheet } from "@/components/UpdateSheet";
@@ -43,6 +44,7 @@ export function Dashboard() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [managingPrograms, setManagingPrograms] = useState(false);
+  const [browsingTemplates, setBrowsingTemplates] = useState(false);
   const [celebration, setCelebration] = useState<CelebrationPayload | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [pendingImport, setPendingImport] = useState<ImportPreview | null>(null);
@@ -228,6 +230,7 @@ export function Dashboard() {
         <SessionView
           onOpenExercise={setSelectedId}
           onManagePrograms={() => setManagingPrograms(true)}
+          onBrowseTemplates={() => setBrowsingTemplates(true)}
           onWarmup={startWarmup}
         />
       ) : (
@@ -258,6 +261,19 @@ export function Dashboard() {
         open={managingPrograms}
         onClose={() => setManagingPrograms(false)}
         onDeleted={(message) => flash(message, "Annuler")}
+        onBrowseTemplates={() => {
+          setManagingPrograms(false);
+          setBrowsingTemplates(true);
+        }}
+      />
+
+      <TemplatesSheet
+        open={browsingTemplates}
+        onClose={() => setBrowsingTemplates(false)}
+        onAdopted={(program) => {
+          setView("session");
+          flash(`Programme « ${program.name} » prêt`);
+        }}
       />
 
       <ImportHelpSheet

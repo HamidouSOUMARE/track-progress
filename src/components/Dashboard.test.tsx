@@ -221,7 +221,7 @@ describe("parcours de suivi", () => {
     render(<Dashboard />);
 
     // Vue Séance par défaut : aucun programme, donc l'appel à en créer un.
-    fireEvent.click(screen.getByRole("button", { name: /créer un programme/i }));
+    fireEvent.click(screen.getByRole("button", { name: /créer le mien/i }));
 
     const programs = screen.getByRole("dialog", { name: /mes programmes/i });
     fireEvent.change(within(programs).getByLabelText(/nom du nouveau programme/i), {
@@ -913,5 +913,54 @@ describe("parcours de suivi", () => {
 
     completeSets(screen.getByRole("dialog", { name: "Squat" }), 8, 1);
     expect(screen.getByRole("timer").textContent).toMatch(/4:1[56]/);
+  });
+  it("suit un programme tout prêt depuis la séance vide", () => {
+    render(<Dashboard />);
+
+    fireEvent.click(screen.getByRole("button", { name: /choisir un programme tout prêt/i }));
+    const sheet = screen.getByRole("dialog", { name: /programmes tout prêts/i });
+
+    // Le filtre par jours ne garde que les modèles qui ont ce rythme.
+    fireEvent.click(within(sheet).getByRole("button", { name: /^5 jours$/i }));
+    expect(within(sheet).queryByRole("button", { name: /^débuter/i })).toBeNull();
+    fireEvent.click(within(sheet).getByRole("button", { name: /^fessiers & jambes/i }));
+
+    // Le rythme filtré est déjà choisi, et on annonce ce qui sera ajouté.
+    expect(
+      within(sheet).getByRole("button", { name: /^5 jours$/i }).getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(sheet.textContent).toMatch(/hip thrust/i);
+    expect(sheet.textContent).toMatch(/nouveaux exercices rejoindront ta bibliothèque/i);
+
+    fireEvent.click(within(sheet).getByRole("button", { name: /suivre ce programme/i }));
+
+    const state = useTrackerStore.getState();
+    const program = state.programs[0];
+    expect(program?.name).toBe("Fessiers & jambes · 5 jours");
+    expect(state.activeProgramId).toBe(program?.id);
+    expect(state.exercises.some((exercise) => exercise.id === "hip-thrust")).toBe(true);
+    expect(screen.getByText(/programme « fessiers & jambes · 5 jours » prêt/i)).toBeDefined();
+  });
+
+  it("propose les programmes tout prêts depuis la gestion des programmes", () => {
+    useTrackerStore.getState().createProgram("Le mien");
+
+    render(<Dashboard />);
+
+    fireEvent.click(screen.getByRole("button", { name: /programme suivi/i }));
+    const programs = screen.getByRole("dialog", { name: /mes programmes/i });
+    fireEvent.click(within(programs).getByRole("button", { name: /programmes tout prêts/i }));
+
+    const sheet = screen.getByRole("dialog", { name: /programmes tout prêts/i });
+    fireEvent.click(within(sheet).getByRole("button", { name: /^force 5×5/i }));
+    fireEvent.click(within(sheet).getByRole("button", { name: /^3 jours$/i }));
+    fireEvent.click(within(sheet).getByRole("button", { name: /suivre ce programme/i }));
+
+    const state = useTrackerStore.getState();
+    expect(state.programs.map((program) => program.name)).toEqual([
+      "Le mien",
+      "Force 5×5 · 3 jours",
+    ]);
+    expect(state.activeProgramId).toBe(state.programs[1]?.id);
   });
 });

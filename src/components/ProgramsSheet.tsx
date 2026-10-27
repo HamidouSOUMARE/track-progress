@@ -10,6 +10,7 @@ interface ProgramsSheetProps {
   open: boolean;
   onClose: () => void;
   onDeleted: (message: string) => void;
+  onBrowseTemplates: () => void;
 }
 
 function countExercises(program: Program): number {
@@ -20,7 +21,12 @@ function countDays(program: Program): number {
   return WEEKDAYS.filter((day) => program.days[day.id].length > 0).length;
 }
 
-export function ProgramsSheet({ open, onClose, onDeleted }: ProgramsSheetProps) {
+export function ProgramsSheet({
+  open,
+  onClose,
+  onDeleted,
+  onBrowseTemplates,
+}: ProgramsSheetProps) {
   const programs = useTrackerStore((state) => state.programs);
   const activeProgramId = useTrackerStore((state) => state.activeProgramId);
   const createProgram = useTrackerStore((state) => state.createProgram);
@@ -172,6 +178,22 @@ export function ProgramsSheet({ open, onClose, onDeleted }: ProgramsSheetProps) 
           Créer
         </button>
       </form>
+
+      <button
+        type="button"
+        onClick={onBrowseTemplates}
+        className="mt-3 flex w-full items-center justify-between gap-3 rounded-card border border-dashed border-line px-4 py-3 text-left transition-colors hover:border-accent/40 hover:bg-surface-hover"
+      >
+        <span className="flex flex-col">
+          <span className="text-sm font-semibold text-ink">Programmes tout prêts</span>
+          <span className="text-xs text-ink-faint">
+            Débuter, Haut / Bas, Push Pull Legs, Fessiers… de 2 à 5 jours
+          </span>
+        </span>
+        <span aria-hidden="true" className="text-ink-faint">
+          ›
+        </span>
+      </button>
     </Sheet>
   );
 }
