@@ -23,7 +23,7 @@ describe("import d'un programme aux groupes plus fins", () => {
     }
   });
 
-  it("place les exercices de bras et de jambes dans les bons groupes", () => {
+  it("place les exercices de bras, de jambes et de fessiers dans les bons groupes", () => {
     const byId = new Map(parseSnapshot(raw).exercises.map((item) => [item.id, item]));
 
     expect(byId.get("curl-incline")?.group).toBe("bras");
@@ -31,7 +31,7 @@ describe("import d'un programme aux groupes plus fins", () => {
     expect(byId.get("squat")?.group).toBe("jambes");
     expect(byId.get("leg-curl-assis")?.group).toBe("jambes");
     expect(byId.get("mollets-debout")?.group).toBe("jambes");
-    expect(byId.get("hip-thrust")?.group).toBe("jambes");
+    expect(byId.get("hip-thrust")?.group).toBe("fessiers");
   });
 
   it("conserve le programme, ses séances et les notes", () => {
@@ -58,7 +58,6 @@ describe("import d'un programme aux groupes plus fins", () => {
   it("garde la trace des groupes rattachés pour pouvoir le signaler", () => {
     expect(readSnapshot(raw).remappedGroups).toEqual([
       "biceps",
-      "fessiers",
       "ischios",
       "mollets",
       "quadriceps",

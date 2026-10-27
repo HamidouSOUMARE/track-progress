@@ -22,7 +22,7 @@ l'app le fait savoir.
 ## Fonctionnalités
 
 - **Charge de référence + charge actuelle** avec écart en kg et en pourcentage.
-- **Regroupement par partie du corps** : pectoraux, dos, jambes, épaules, bras, abdos.
+- **Regroupement par partie du corps** : pectoraux, dos, jambes, fessiers, épaules, bras, abdos.
 - **Mensurations** dans le même écran : tour de taille, tour de bras, poids de corps…
   chaque mesure porte le sens de son objectif (↑ gagner du bras, ↓ perdre du tour de
   taille), qui pilote la couleur, la détection de record et le message d'encouragement.

@@ -15,6 +15,12 @@ export const MUSCLE_GROUPS: readonly MuscleGroup[] = [
     accent: "--color-group-jambes",
   },
   {
+    id: "fessiers",
+    label: "Fessiers",
+    shortLabel: "Fessiers",
+    accent: "--color-group-fessiers",
+  },
+  {
     id: "epaules",
     label: "Épaules",
     shortLabel: "Épaules",

@@ -27,7 +27,8 @@ describe("resolveGroup", () => {
     expect(resolveGroup("quadriceps")).toBe("jambes");
     expect(resolveGroup("ischios")).toBe("jambes");
     expect(resolveGroup("mollets")).toBe("jambes");
-    expect(resolveGroup("fessiers")).toBe("jambes");
+    expect(resolveGroup("fessiers")).toBe("fessiers");
+    expect(resolveGroup("glutes")).toBe("fessiers");
   });
 
   it("laisse passer les groupes déjà connus", () => {

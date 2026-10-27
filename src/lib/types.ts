@@ -2,6 +2,7 @@ export type MuscleGroupId =
   | "pectoraux"
   | "dos"
   | "jambes"
+  | "fessiers"
   | "epaules"
   | "bras"
   | "abdos"
