@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 
-function stubServiceWorker(register: () => Promise<unknown>) {
+function stubServiceWorker(register: () => Promise<unknown>, controller: object | null = null) {
+  const container = Object.assign(new EventTarget(), { register, controller });
   Object.defineProperty(navigator, "serviceWorker", {
-    value: { register },
+    value: container,
     configurable: true,
   });
+  return container;
 }
 
 afterEach(() => {
@@ -53,5 +55,49 @@ describe("ServiceWorkerRegistrar", () => {
     render(<ServiceWorkerRegistrar />);
 
     await waitFor(() => expect(register).toHaveBeenCalled());
+  });
+
+  it("propose de recharger quand une nouvelle version prend la main", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const container = stubServiceWorker(vi.fn(async () => ({})), {});
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload });
+
+    try {
+      render(<ServiceWorkerRegistrar />);
+      act(() => {
+        container.dispatchEvent(new Event("controllerchange"));
+      });
+
+      fireEvent.click(await screen.findByRole("button", { name: /recharger/i }));
+      expect(reload).toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("se tait lors de la toute première installation", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const container = stubServiceWorker(vi.fn(async () => ({})));
+
+    render(<ServiceWorkerRegistrar />);
+    act(() => {
+      container.dispatchEvent(new Event("controllerchange"));
+    });
+
+    expect(screen.queryByRole("button", { name: /recharger/i })).toBeNull();
+  });
+
+  it("cherche une mise à jour au retour au premier plan", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const update = vi.fn(async () => undefined);
+    stubServiceWorker(vi.fn(async () => ({ update })));
+
+    render(<ServiceWorkerRegistrar />);
+    // L'enregistrement se résout avant que la page ne revienne au premier plan.
+    await act(async () => {});
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    expect(update).toHaveBeenCalled();
   });
 });
