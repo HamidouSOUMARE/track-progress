@@ -33,9 +33,12 @@ l'app le fait savoir.
 - **Charge et tonnage distingués** : la progression et les records se jugent sur la
   charge la plus lourde de la séance, jamais sur le volume — cinq séries au lieu de
   quatre ne font pas un record. Le tonnage s'affiche à part dans l'historique.
-- **Repos réglable par exercice** (aucun, 1 min, 1 min 30, 2 min, 3 min), en plein écran,
-  décompte adossé à un instant de fin pour ne pas dériver. L'écran reste allumé pendant le
-  repos là où le navigateur le permet — le téléphone posé sur le banc ne se verrouille pas.
+- **Repos réglable par exercice** : raccourcis (aucun, 1 min, 1 min 30, 2 min, 3 min) ou
+  durée saisie à la main jusqu'à 10 min, en plein écran, décompte adossé à un instant de
+  fin pour ne pas dériver. L'écran reste allumé pendant le repos là où le navigateur le
+  permet — le téléphone posé sur le banc ne se verrouille pas.
+- **Échauffement minuté** avant la séance ou avant un exercice, dans le même plein écran
+  que le repos. Il n'enregistre rien : ni performance, ni avancement de séance.
 - **Animation de célébration** quand une charge progresse, avec badge « record personnel ».
 - **Historique et sparkline** par exercice. Toute suppression — une performance, un
   suivi entier — s'annule pendant six secondes depuis une barre flottante, sans boîte
@@ -53,6 +56,13 @@ l'app le fait savoir.
   glisser-déposer par une poignée, ou aux flèches — qui restent le chemin accessible
   au clavier et au lecteur d'écran. Un seul est « suivi » à la
   fois et alimente la vue Séance.
+- **Programmes tout prêts** : Débuter, Corps complet, Haut / Bas, Push Pull Legs, Split
+  par muscle, Force 5×5, Fessiers & jambes, Haut du corps, À la maison, Express 30 min —
+  chacun décliné de 2 à 5 jours par semaine. Le modèle est copié : il devient un programme
+  comme les autres. Les exercices déjà suivis gardent leurs réglages et leur historique.
+- **Nouveautés** annoncées une fois par version à l'ouverture (jamais au premier
+  lancement), et consultables en bas de page. Une version publiée pendant que l'app est
+  ouverte propose de recharger plutôt que de le faire en pleine série.
 - **Masquer ou supprimer** : masquer sort un suivi des listes en conservant tout son
   historique — utile pour un exercice mis de côté quelques mois ; supprimer efface pour
   de bon. Les deux s'annulent depuis la barre flottante.
