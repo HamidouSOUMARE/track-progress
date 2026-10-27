@@ -60,3 +60,16 @@ export function formatDate(iso: string): string {
     year: "numeric",
   });
 }
+
+/** Durée lisible d'un coup d'œil : « 45 s », « 2 min », « 1 min 30 ». */
+export function formatDuration(seconds: number): string {
+  const safe = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(safe / 60);
+  const rest = safe % 60;
+
+  if (minutes === 0) {
+    return `${rest} s`;
+  }
+
+  return rest === 0 ? `${minutes} min` : `${minutes} min ${String(rest).padStart(2, "0")}`;
+}

@@ -8,7 +8,16 @@ import { WEEKDAYS, emptyWeek, todayStamp } from "@/data/weekdays";
 import { createId } from "@/lib/id";
 import { mergeSnapshots } from "@/lib/merge";
 import { sanitizeExercise, sanitizeSnapshot } from "@/lib/sanitize";
-import { entryOn, entrySeries, isEntryDone, openEntryOn, targetSets } from "@/lib/session";
+import {
+  DEFAULT_WARMUP_SECONDS,
+  MAX_WARMUP_SECONDS,
+  clampDuration,
+  entryOn,
+  entrySeries,
+  isEntryDone,
+  openEntryOn,
+  targetSets,
+} from "@/lib/session";
 import { isRecord } from "@/lib/progress";
 import type {
   Exercise,
@@ -108,6 +117,8 @@ export interface TrackerSnapshot {
 interface TrackerState extends TrackerSnapshot {
   lastDeletion: Deletion | null;
   selectedDay: SelectedDay | null;
+  /** Dernière durée d'échauffement choisie, reproposée la fois suivante. */
+  warmupSeconds: number;
   addExercise: (input: NewExercise) => Exercise;
   removeExercise: (exerciseId: string) => void;
   startTracking: (exerciseId: string, reference: number) => void;
@@ -122,6 +133,7 @@ interface TrackerState extends TrackerSnapshot {
   deleteProgram: (programId: string) => void;
   setActiveProgram: (programId: string | null) => void;
   selectDay: (day: WeekdayId) => void;
+  setWarmupSeconds: (seconds: number) => void;
   createWorkout: (programId: string, name: string) => Workout | null;
   renameWorkout: (programId: string, workoutId: string, name: string) => void;
   deleteWorkout: (programId: string, workoutId: string) => void;
@@ -238,6 +250,7 @@ export const useTrackerStore = create<TrackerState>()(
       activeProgramId: null,
       lastDeletion: null,
       selectedDay: null,
+      warmupSeconds: DEFAULT_WARMUP_SECONDS,
 
       addExercise: (input) => {
         const base = slugify(input.name) || "exercice";
@@ -573,6 +586,10 @@ export const useTrackerStore = create<TrackerState>()(
         set({ selectedDay: { day, date: todayStamp() } });
       },
 
+      setWarmupSeconds: (seconds) => {
+        set({ warmupSeconds: clampDuration(seconds, MAX_WARMUP_SECONDS) });
+      },
+
       createWorkout: (programId, name) => {
         const program = get().programs.find((item) => item.id === programId);
         if (!program) {
@@ -822,19 +839,38 @@ export const useTrackerStore = create<TrackerState>()(
       name: STORAGE_KEY,
       version: STORAGE_VERSION,
       storage: createJSONStorage(() => localStorage),
-      partialize: ({ exercises, trackings, programs, activeProgramId, selectedDay }) => ({
+      partialize: ({
         exercises,
         trackings,
         programs,
         activeProgramId,
         selectedDay,
+        warmupSeconds,
+      }) => ({
+        exercises,
+        trackings,
+        programs,
+        activeProgramId,
+        selectedDay,
+        warmupSeconds,
       }),
-      // Le jour consulté ne fait pas partie de la sauvegarde échangeable :
-      // on le reprend à part pour ne pas le perdre à la réhydratation.
-      migrate: (persisted, version) => ({
-        ...migrateSnapshot(persisted, version),
-        selectedDay: (persisted as { selectedDay?: SelectedDay } | null)?.selectedDay ?? null,
-      }),
+      // Le jour consulté et l'échauffement ne font pas partie de la sauvegarde
+      // échangeable : on les reprend à part pour ne pas les perdre à la réhydratation.
+      migrate: (persisted, version) => {
+        const preferences = persisted as {
+          selectedDay?: SelectedDay;
+          warmupSeconds?: number;
+        } | null;
+
+        return {
+          ...migrateSnapshot(persisted, version),
+          selectedDay: preferences?.selectedDay ?? null,
+          warmupSeconds: clampDuration(
+            preferences?.warmupSeconds ?? DEFAULT_WARMUP_SECONDS,
+            MAX_WARMUP_SECONDS,
+          ),
+        };
+      },
     },
   ),
 );

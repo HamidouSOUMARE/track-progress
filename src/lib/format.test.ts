@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatDelta, formatRatio, formatRelativeDate, formatWithUnit } from "@/lib/format";
+import {
+  formatDelta,
+  formatDuration,
+  formatRatio,
+  formatRelativeDate,
+  formatWithUnit,
+} from "@/lib/format";
 
 describe("formatWithUnit", () => {
   it("affiche l'unité de l'exercice", () => {
@@ -31,5 +37,14 @@ describe("formatRelativeDate", () => {
     expect(formatRelativeDate("2026-02-28T12:00:00.000Z", now)).toBe("hier");
     expect(formatRelativeDate("2026-03-01T11:00:00.000Z", now)).toBe("il y a 1 heure");
     expect(formatRelativeDate("2026-03-01T11:59:30.000Z", now)).toBe("à l'instant");
+  });
+});
+
+describe("formatDuration", () => {
+  it("n'affiche les secondes que lorsqu'elles comptent", () => {
+    expect(formatDuration(45)).toBe("45 s");
+    expect(formatDuration(120)).toBe("2 min");
+    expect(formatDuration(90)).toBe("1 min 30");
+    expect(formatDuration(305)).toBe("5 min 05");
   });
 });

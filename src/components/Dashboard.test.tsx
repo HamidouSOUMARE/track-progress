@@ -21,6 +21,7 @@ beforeEach(() => {
     programs: [],
     activeProgramId: null,
     lastDeletion: null,
+    warmupSeconds: 300,
   });
 });
 
@@ -838,5 +839,79 @@ describe("parcours de suivi", () => {
     render(<Dashboard />);
 
     expect(screen.getByRole("heading", { name: /séance du test/i })).toBeDefined();
+  });
+  it("lance un échauffement avant la séance sans rien enregistrer", () => {
+    planToday("squat");
+
+    render(<Dashboard />);
+
+    const progress = screen.getByLabelText(/avancement de la séance/i);
+    fireEvent.click(within(progress).getByRole("button", { name: /s'échauffer/i }));
+    fireEvent.click(within(progress).getByRole("button", { name: /^10 min$/i }));
+    fireEvent.click(within(progress).getByRole("button", { name: /lancer · 10 min/i }));
+
+    const timer = screen.getByRole("timer");
+    expect(timer.textContent).toMatch(/10:0[01]/);
+    expect(timer.textContent).toMatch(/avant séance du test/i);
+
+    fireEvent.click(within(timer).getByRole("button", { name: /je suis prêt/i }));
+
+    // Ni performance ni avancement : l'échauffement ne compte pas.
+    expect(useTrackerStore.getState().trackings).toEqual({});
+    expect(screen.getByLabelText(/avancement de la séance/i).textContent).toMatch(/0\/1/);
+    // La durée choisie est reproposée la fois suivante.
+    expect(useTrackerStore.getState().warmupSeconds).toBe(600);
+  });
+
+  it("accepte une durée d'échauffement saisie à la main", () => {
+    useTrackerStore.getState().startTracking("squat", 100);
+
+    render(<Dashboard />);
+
+    const sheet = openExercise("Squat");
+    fireEvent.click(within(sheet).getByRole("button", { name: /s'échauffer/i }));
+    fireEvent.click(within(sheet).getByRole("button", { name: /^autre…$/i }));
+    fireEvent.change(within(sheet).getByLabelText(/^minutes$/i), { target: { value: "7" } });
+    fireEvent.change(within(sheet).getByLabelText(/^secondes$/i), { target: { value: "30" } });
+    fireEvent.click(within(sheet).getByRole("button", { name: /lancer · 7 min 30/i }));
+
+    const timer = screen.getByRole("timer");
+    expect(timer.textContent).toMatch(/7:3[01]/);
+    expect(timer.textContent).toMatch(/avant squat/i);
+  });
+
+  it("retire l'échauffement de la fiche une fois la première série validée", () => {
+    useTrackerStore.getState().startTracking("squat", 100);
+
+    render(<Dashboard />);
+
+    const sheet = openExercise("Squat");
+    completeSets(sheet, 8, 1);
+
+    expect(
+      within(screen.getByRole("dialog", { name: "Squat" })).queryByRole("button", {
+        name: /s'échauffer/i,
+      }),
+    ).toBeNull();
+  });
+
+  it("règle un repos personnalisé depuis la fiche", () => {
+    useTrackerStore.getState().startTracking("squat", 100);
+
+    render(<Dashboard />);
+
+    const sheet = openExercise("Squat");
+    openEditPanel(sheet);
+    fireEvent.click(within(sheet).getByRole("button", { name: /^autre…$/i }));
+    fireEvent.change(within(sheet).getByLabelText(/^minutes$/i), { target: { value: "4" } });
+    fireEvent.change(within(sheet).getByLabelText(/^secondes$/i), { target: { value: "15" } });
+    fireEvent.click(within(sheet).getByRole("button", { name: /^enregistrer$/i }));
+
+    expect(useTrackerStore.getState().exercises.find((item) => item.id === "squat")?.rest).toBe(
+      255,
+    );
+
+    completeSets(screen.getByRole("dialog", { name: "Squat" }), 8, 1);
+    expect(screen.getByRole("timer").textContent).toMatch(/4:1[56]/);
   });
 });

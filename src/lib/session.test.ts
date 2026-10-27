@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { restEncouragement } from "@/lib/encouragement";
 import {
+  clampDuration,
   countDone,
   formatCountdown,
   isDoneOn,
@@ -117,5 +118,14 @@ describe("restEncouragement", () => {
 
   it("garde un message pour les séries intermédiaires", () => {
     expect(restEncouragement(2, 8)).toMatch(/enchaîne|rythme|avance|ajoute/i);
+  });
+});
+
+describe("clampDuration", () => {
+  it("borne une durée saisie à la main", () => {
+    expect(clampDuration(255, 600)).toBe(255);
+    expect(clampDuration(900, 600)).toBe(600);
+    expect(clampDuration(-5, 600)).toBe(0);
+    expect(clampDuration(Number.NaN, 600)).toBe(0);
   });
 });

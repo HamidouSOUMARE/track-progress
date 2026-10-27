@@ -17,7 +17,7 @@ import { RestTimer, type RestPeriod } from "@/components/RestTimer";
 import { Toast, type ToastMessage } from "@/components/Toast";
 import { UpdateSheet } from "@/components/UpdateSheet";
 import { downloadSnapshot, readSnapshot } from "@/lib/backup";
-import { restEncouragement } from "@/lib/encouragement";
+import { restEncouragement, warmupEncouragement } from "@/lib/encouragement";
 import { restSeconds, targetSets } from "@/lib/session";
 import { useHydrated, useTrackerStore } from "@/store/tracker-store";
 import type { Exercise } from "@/lib/types";
@@ -67,12 +67,23 @@ export function Dashboard() {
 
     setRest({
       key: Date.now(),
+      kind: "rest",
       endsAt: Date.now() + seconds * 1000,
       seconds,
-      exerciseName: exercise.name,
-      setNumber,
-      targetSets: target,
       message: restEncouragement(setNumber, target),
+      caption: `Série ${Math.min(setNumber + 1, target)} sur ${target} · ${exercise.name}`,
+    });
+  };
+
+  /** Même écran que le repos, mais rien n'est enregistré : il ne compte pas. */
+  const startWarmup = (seconds: number, caption: string) => {
+    setRest({
+      key: Date.now(),
+      kind: "warmup",
+      endsAt: Date.now() + seconds * 1000,
+      seconds,
+      message: warmupEncouragement(),
+      caption,
     });
   };
 
@@ -217,6 +228,7 @@ export function Dashboard() {
         <SessionView
           onOpenExercise={setSelectedId}
           onManagePrograms={() => setManagingPrograms(true)}
+          onWarmup={startWarmup}
         />
       ) : (
         <LibraryView onOpenExercise={setSelectedId} onAdd={() => setAdding(true)} />
@@ -230,6 +242,7 @@ export function Dashboard() {
         onUndoable={(message) => flash(message, "Annuler")}
         onRestStart={startRest}
         onRestStop={() => setRest(null)}
+        onWarmup={startWarmup}
       />
 
       <AddExerciseDialog

@@ -5,17 +5,25 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { formatCountdown } from "@/lib/session";
 import { useWakeLock } from "@/lib/use-wake-lock";
 
+/** Repos entre deux séries, ou échauffement qui n'enregistre rien. */
+export type TimerKind = "rest" | "warmup";
+
 export interface RestPeriod {
   /** Change à chaque nouveau repos pour relancer l'animation. */
   key: number;
+  kind: TimerKind;
   endsAt: number;
   /** Durée totale, allongée en même temps que `endsAt` par le bouton +30 s. */
   seconds: number;
-  exerciseName: string;
-  setNumber: number;
-  targetSets: number;
   message: string;
+  /** Contexte sous le message : la série qui arrive, ou ce qu'on prépare. */
+  caption: string;
 }
+
+const LABELS: Record<TimerKind, { running: string; over: string; skip: string }> = {
+  rest: { running: "Repos", over: "Repos terminé", skip: "Passer le repos" },
+  warmup: { running: "Échauffement", over: "Échauffement terminé", skip: "Je suis prêt" },
+};
 
 interface RestTimerProps {
   rest: RestPeriod | null;
@@ -76,6 +84,7 @@ export function RestTimer({ rest, onExtend, onDismiss }: RestTimerProps) {
   }, [rest, over, onDismiss]);
 
   const ratio = rest ? Math.max(0, Math.min(1, remaining / rest.seconds)) : 0;
+  const labels = LABELS[rest?.kind ?? "rest"];
 
   return (
     <AnimatePresence>
@@ -143,17 +152,14 @@ export function RestTimer({ rest, onExtend, onDismiss }: RestTimerProps) {
                 {over ? "À toi" : formatCountdown(remaining)}
               </motion.span>
               <span className="text-xs font-medium tracking-[0.2em] text-ink-faint uppercase">
-                {over ? "Repos terminé" : "Repos"}
+                {over ? labels.over : labels.running}
               </span>
             </div>
           </div>
 
           <div className="relative flex flex-col items-center gap-1.5 px-4 text-center">
             <span className="text-xl font-bold text-balance text-ink">{rest.message}</span>
-            <span className="text-xs text-ink-faint">
-              Série {Math.min(rest.setNumber + 1, rest.targetSets)} sur {rest.targetSets} ·{" "}
-              {rest.exerciseName}
-            </span>
+            <span className="text-xs text-ink-faint">{rest.caption}</span>
           </div>
 
           <div className="relative flex items-center gap-3">
@@ -169,7 +175,7 @@ export function RestTimer({ rest, onExtend, onDismiss }: RestTimerProps) {
               onClick={onDismiss}
               className="rounded-pill bg-accent px-6 py-3 text-sm font-bold text-accent-ink transition-transform active:scale-95"
             >
-              {over ? "C'est parti" : "Passer le repos"}
+              {over ? "C'est parti" : labels.skip}
             </button>
           </div>
         </motion.div>

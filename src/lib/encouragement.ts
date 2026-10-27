@@ -81,3 +81,15 @@ export function restEncouragement(setNumber: number, targetSets: number): string
 
   return pool[Math.floor(Math.random() * pool.length)] ?? pool[0];
 }
+
+/** L'échauffement ne compte pas, mais il prépare ce qui compte. */
+const WARMUP_MESSAGES = [
+  "Monte en température",
+  "Réveille les articulations",
+  "Prends le temps, ça paie ensuite",
+  "Corps chaud, charges lourdes",
+] as const;
+
+export function warmupEncouragement(): string {
+  return WARMUP_MESSAGES[Math.floor(Math.random() * WARMUP_MESSAGES.length)] ?? WARMUP_MESSAGES[0];
+}

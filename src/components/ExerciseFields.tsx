@@ -1,7 +1,9 @@
 "use client";
 
+import { DurationPicker } from "@/components/DurationPicker";
+import { PILL_BASE, PILL_OFF, PILL_ON } from "@/components/pill-styles";
 import { MUSCLE_GROUPS } from "@/data/muscle-groups";
-import { MAX_TARGET_SETS, restSeconds, targetSets } from "@/lib/session";
+import { MAX_REST_SECONDS, MAX_TARGET_SETS, restSeconds, targetSets } from "@/lib/session";
 import type { Goal, MuscleGroupId, TrackKind, Unit } from "@/lib/types";
 
 /** Champs partagés par la création et l'édition, pour qu'ils ne divergent pas. */
@@ -51,18 +53,7 @@ const GOALS: { id: Goal; label: string; hint: string }[] = [
 
 const TRAINING_GROUPS = MUSCLE_GROUPS.filter((group) => group.id !== "mensurations");
 
-const RESTS: { value: number; label: string }[] = [
-  { value: 0, label: "Aucun" },
-  { value: 60, label: "1 min" },
-  { value: 90, label: "1 min 30" },
-  { value: 120, label: "2 min" },
-  { value: 180, label: "3 min" },
-];
-
-const PILL_BASE =
-  "rounded-pill border px-3.5 py-1.5 text-sm font-semibold transition-colors";
-const PILL_ON = "border-accent/50 bg-accent-soft text-accent";
-const PILL_OFF = "border-line bg-surface-raised text-ink-muted hover:text-ink";
+const RESTS = [0, 60, 90, 120, 180] as const;
 
 export function ExerciseFields({
   draft,
@@ -240,29 +231,15 @@ export function ExerciseFields({
       ) : null}
 
       {!isMeasure ? (
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1 text-xs font-medium text-ink-muted">
-            Repos entre séries
-          </legend>
-          <div className="flex flex-wrap gap-2">
-            {RESTS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                aria-pressed={restSeconds(draft) === option.value}
-                onClick={() => patch({ rest: option.value })}
-                className={`${PILL_BASE} ${
-                  restSeconds(draft) === option.value ? PILL_ON : PILL_OFF
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-ink-faint">
-            Le décompte démarre tout seul dès que tu enregistres une performance.
-          </p>
-        </fieldset>
+        <DurationPicker
+          legend="Repos entre séries"
+          value={restSeconds(draft)}
+          presets={RESTS}
+          max={MAX_REST_SECONDS}
+          zeroLabel="Aucun"
+          onChange={(rest) => patch({ rest })}
+          hint="Le décompte démarre tout seul dès que tu enregistres une performance."
+        />
       ) : null}
 
       <fieldset className="flex flex-col gap-2">

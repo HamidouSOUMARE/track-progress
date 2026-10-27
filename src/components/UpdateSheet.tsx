@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ExerciseFields, type ExerciseDraft } from "@/components/ExerciseFields";
 import { Collapsible } from "@/components/Collapsible";
 import { SeriesPanel } from "@/components/SeriesPanel";
+import { WarmupLauncher } from "@/components/WarmupLauncher";
 import { Sheet } from "@/components/Sheet";
 import { DeltaBadge } from "@/components/DeltaBadge";
 import { getMuscleGroup } from "@/data/muscle-groups";
@@ -39,6 +40,8 @@ interface UpdateSheetProps {
   onRestStart: (exercise: Exercise, setNumber: number) => void;
   /** Coupe le repos : l'exercice est terminé, on passe au suivant. */
   onRestStop: () => void;
+  /** Lance un échauffement, qui n'enregistre rien. */
+  onWarmup: (seconds: number, caption: string) => void;
 }
 
 interface Opened {
@@ -64,6 +67,7 @@ export function UpdateSheet({
   onUndoable,
   onRestStart,
   onRestStop,
+  onWarmup,
 }: UpdateSheetProps) {
   const startTracking = useTrackerStore((state) => state.startTracking);
   const updateReference = useTrackerStore((state) => state.updateReference);
@@ -392,6 +396,15 @@ export function UpdateSheet({
           </span>
           <span className="text-xs text-ink-faint">{formatRelativeDate(previous.date)}</span>
         </p>
+      ) : null}
+
+      {/* Avant la première série seulement : on s'échauffe, puis on charge. */}
+      {!isMeasure && todaySeries.length === 0 && !finishedToday ? (
+        <WarmupLauncher
+          align="center"
+          className="mb-4"
+          onStart={(seconds) => onWarmup(seconds, `Avant ${active.name}`)}
+        />
       ) : null}
 
       <div className="flex items-center justify-between gap-3">

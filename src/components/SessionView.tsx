@@ -5,6 +5,7 @@ import { Reorder, motion } from "motion/react";
 import { ExerciseCard } from "@/components/ExerciseCard";
 import { ExercisePickerSheet } from "@/components/ExercisePickerSheet";
 import { PlannedExerciseRow } from "@/components/PlannedExerciseRow";
+import { WarmupLauncher } from "@/components/WarmupLauncher";
 import { WeekStrip } from "@/components/WeekStrip";
 import { WorkoutPickerSheet } from "@/components/WorkoutPickerSheet";
 import { WEEKDAYS, resolveSelectedDay, todayWeekday } from "@/data/weekdays";
@@ -15,6 +16,7 @@ import type { Exercise, Program, WeekdayId, Workout } from "@/lib/types";
 interface SessionViewProps {
   onOpenExercise: (exerciseId: string) => void;
   onManagePrograms: () => void;
+  onWarmup: (seconds: number, caption: string) => void;
 }
 
 /** Autres jours où la séance revient, pour prévenir avant de la modifier. */
@@ -24,7 +26,7 @@ function otherDays(program: Program, workoutId: string, day: WeekdayId): string[
   ).map((weekday) => weekday.label.toLowerCase());
 }
 
-export function SessionView({ onOpenExercise, onManagePrograms }: SessionViewProps) {
+export function SessionView({ onOpenExercise, onManagePrograms, onWarmup }: SessionViewProps) {
   const exercises = useTrackerStore((state) => state.exercises);
   const trackings = useTrackerStore((state) => state.trackings);
   const programs = useTrackerStore((state) => state.programs);
@@ -268,6 +270,19 @@ export function SessionView({ onOpenExercise, onManagePrograms }: SessionViewPro
                   ? "Tout est enregistré, bravo."
                   : `Reste : ${remaining.map((exercise) => exercise.name).join(", ")}`}
               </p>
+
+              {/* L'échauffement se fait avant de commencer : il s'efface ensuite. */}
+              {doneCount === 0 ? (
+                <WarmupLauncher
+                  className="mt-1"
+                  onStart={(seconds) =>
+                    onWarmup(
+                      seconds,
+                      `Avant ${dayWorkouts.map((workout) => workout.name).join(" + ")}`,
+                    )
+                  }
+                />
+              ) : null}
             </section>
           ) : null}
 
