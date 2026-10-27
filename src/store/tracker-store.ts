@@ -121,6 +121,8 @@ interface TrackerState extends TrackerSnapshot {
   selectedDay: SelectedDay | null;
   /** Dernière durée d'échauffement choisie, reproposée la fois suivante. */
   warmupSeconds: number;
+  /** Dernière version dont les nouveautés ont été vues. */
+  lastSeenRelease: string | null;
   addExercise: (input: NewExercise) => Exercise;
   removeExercise: (exerciseId: string) => void;
   startTracking: (exerciseId: string, reference: number) => void;
@@ -138,6 +140,7 @@ interface TrackerState extends TrackerSnapshot {
   setActiveProgram: (programId: string | null) => void;
   selectDay: (day: WeekdayId) => void;
   setWarmupSeconds: (seconds: number) => void;
+  markReleaseSeen: (releaseId: string) => void;
   createWorkout: (programId: string, name: string) => Workout | null;
   renameWorkout: (programId: string, workoutId: string, name: string) => void;
   deleteWorkout: (programId: string, workoutId: string) => void;
@@ -255,6 +258,7 @@ export const useTrackerStore = create<TrackerState>()(
       lastDeletion: null,
       selectedDay: null,
       warmupSeconds: DEFAULT_WARMUP_SECONDS,
+      lastSeenRelease: null,
 
       addExercise: (input) => {
         const base = slugify(input.name) || "exercice";
@@ -611,6 +615,10 @@ export const useTrackerStore = create<TrackerState>()(
         set({ warmupSeconds: clampDuration(seconds, MAX_WARMUP_SECONDS) });
       },
 
+      markReleaseSeen: (releaseId) => {
+        set({ lastSeenRelease: releaseId });
+      },
+
       createWorkout: (programId, name) => {
         const program = get().programs.find((item) => item.id === programId);
         if (!program) {
@@ -867,6 +875,7 @@ export const useTrackerStore = create<TrackerState>()(
         activeProgramId,
         selectedDay,
         warmupSeconds,
+        lastSeenRelease,
       }) => ({
         exercises,
         trackings,
@@ -874,13 +883,16 @@ export const useTrackerStore = create<TrackerState>()(
         activeProgramId,
         selectedDay,
         warmupSeconds,
+        lastSeenRelease,
       }),
-      // Le jour consulté et l'échauffement ne font pas partie de la sauvegarde
-      // échangeable : on les reprend à part pour ne pas les perdre à la réhydratation.
+      // Le jour consulté, l'échauffement et les nouveautés vues ne font pas
+      // partie de la sauvegarde échangeable : on les reprend à part pour ne pas
+      // les perdre à la réhydratation.
       migrate: (persisted, version) => {
         const preferences = persisted as {
           selectedDay?: SelectedDay;
           warmupSeconds?: number;
+          lastSeenRelease?: string;
         } | null;
 
         return {
@@ -890,6 +902,7 @@ export const useTrackerStore = create<TrackerState>()(
             preferences?.warmupSeconds ?? DEFAULT_WARMUP_SECONDS,
             MAX_WARMUP_SECONDS,
           ),
+          lastSeenRelease: preferences?.lastSeenRelease ?? null,
         };
       },
     },

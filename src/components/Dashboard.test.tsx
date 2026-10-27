@@ -9,6 +9,7 @@ import {
   within,
 } from "@testing-library/react";
 import { Dashboard } from "@/components/Dashboard";
+import { RELEASES } from "@/data/changelog";
 import { buildDefaultExercises } from "@/data/exercise-catalog";
 import { WEEKDAYS, emptyWeek, todayStamp, todayWeekday } from "@/data/weekdays";
 import { useTrackerStore } from "@/store/tracker-store";
@@ -22,6 +23,8 @@ beforeEach(() => {
     activeProgramId: null,
     lastDeletion: null,
     warmupSeconds: 300,
+    // Les nouveautés ont leurs propres tests : on les tient à l'écart des autres.
+    lastSeenRelease: RELEASES[0]?.id ?? null,
   });
 });
 
@@ -962,5 +965,37 @@ describe("parcours de suivi", () => {
       "Force 5×5 · 3 jours",
     ]);
     expect(state.activeProgramId).toBe(state.programs[1]?.id);
+  });
+  it("annonce les nouveautés une seule fois à qui avait déjà l'app", () => {
+    useTrackerStore.getState().startTracking("squat", 100);
+    useTrackerStore.setState({ lastSeenRelease: null });
+
+    render(<Dashboard />);
+
+    const news = screen.getByRole("dialog", { name: /quoi de neuf/i });
+    expect(news.textContent).toMatch(/programmes tout prêts/i);
+    fireEvent.click(within(news).getByRole("button", { name: /c'est parti/i }));
+
+    expect(useTrackerStore.getState().lastSeenRelease).toBe(RELEASES[0]?.id);
+    cleanup();
+    render(<Dashboard />);
+    expect(screen.queryByRole("dialog", { name: /quoi de neuf/i })).toBeNull();
+  });
+
+  it("épargne les nouveautés à un nouvel utilisateur", () => {
+    useTrackerStore.setState({ lastSeenRelease: null });
+
+    render(<Dashboard />);
+
+    expect(screen.queryByRole("dialog", { name: /quoi de neuf/i })).toBeNull();
+    expect(useTrackerStore.getState().lastSeenRelease).toBe(RELEASES[0]?.id);
+  });
+
+  it("garde les nouveautés consultables en bas de page", () => {
+    render(<Dashboard />);
+
+    fireEvent.click(screen.getByRole("button", { name: /quoi de neuf/i }));
+
+    expect(screen.getByRole("dialog", { name: /quoi de neuf/i })).toBeDefined();
   });
 });

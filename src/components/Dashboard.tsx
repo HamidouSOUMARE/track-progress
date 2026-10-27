@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { AddExerciseDialog } from "@/components/AddExerciseDialog";
 import { Celebration, type CelebrationPayload } from "@/components/Celebration";
@@ -17,7 +17,10 @@ import { TemplatesSheet } from "@/components/TemplatesSheet";
 import { RestTimer, type RestPeriod } from "@/components/RestTimer";
 import { Toast, type ToastMessage } from "@/components/Toast";
 import { UpdateSheet } from "@/components/UpdateSheet";
+import { WhatsNewSheet } from "@/components/WhatsNewSheet";
+import { RELEASES, unseenReleases } from "@/data/changelog";
 import { downloadSnapshot, readSnapshot } from "@/lib/backup";
+import { formatDate } from "@/lib/format";
 import { restEncouragement, warmupEncouragement } from "@/lib/encouragement";
 import { restSeconds, targetSets } from "@/lib/session";
 import { useHydrated, useTrackerStore } from "@/store/tracker-store";
@@ -38,6 +41,8 @@ export function Dashboard() {
   const replaceAll = useTrackerStore((state) => state.replaceAll);
   const mergeAll = useTrackerStore((state) => state.mergeAll);
   const undoDelete = useTrackerStore((state) => state.undoDelete);
+  const lastSeenRelease = useTrackerStore((state) => state.lastSeenRelease);
+  const markReleaseSeen = useTrackerStore((state) => state.markReleaseSeen);
   const hydrated = useHydrated();
 
   const [view, setView] = useState<View>("session");
@@ -50,7 +55,24 @@ export function Dashboard() {
   const [pendingImport, setPendingImport] = useState<ImportPreview | null>(null);
   const [rest, setRest] = useState<RestPeriod | null>(null);
   const [importHelp, setImportHelp] = useState<{ error: string | null } | null>(null);
+  const [readingNews, setReadingNews] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const latestRelease = RELEASES[0];
+  const hasHistory = Object.keys(trackings).length > 0 || programs.length > 0;
+  const announced = readingNews
+    ? RELEASES.slice(0, 1)
+    : hydrated
+      ? unseenReleases(RELEASES, lastSeenRelease, hasHistory)
+      : [];
+
+  // Un nouvel utilisateur n'a rien à découvrir : on note la version en cours
+  // pour ne lui annoncer que les suivantes.
+  useEffect(() => {
+    if (hydrated && lastSeenRelease === null && !hasHistory && latestRelease) {
+      markReleaseSeen(latestRelease.id);
+    }
+  }, [hydrated, lastSeenRelease, hasHistory, latestRelease, markReleaseSeen]);
 
   const selected: Exercise | null =
     exercises.find((exercise) => exercise.id === selectedId) ?? null;
@@ -237,6 +259,18 @@ export function Dashboard() {
         <LibraryView onOpenExercise={setSelectedId} onAdd={() => setAdding(true)} />
       )}
 
+      {latestRelease ? (
+        <footer className="flex justify-center pt-6">
+          <button
+            type="button"
+            onClick={() => setReadingNews(true)}
+            className="text-xs font-semibold text-ink-faint underline-offset-4 transition-colors hover:text-accent hover:underline"
+          >
+            Quoi de neuf ? · {formatDate(latestRelease.date)}
+          </button>
+        </footer>
+      ) : null}
+
       <UpdateSheet
         exercise={selected}
         tracking={selected ? trackings[selected.id] : undefined}
@@ -318,6 +352,16 @@ export function Dashboard() {
           setToast(null);
         }}
         onDismiss={() => setToast(null)}
+      />
+
+      <WhatsNewSheet
+        releases={announced}
+        onClose={() => {
+          if (latestRelease) {
+            markReleaseSeen(latestRelease.id);
+          }
+          setReadingNews(false);
+        }}
       />
 
       <Celebration payload={celebration} onDone={() => setCelebration(null)} />
