@@ -4,10 +4,11 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { DurationPicker } from "@/components/DurationPicker";
 import { formatDuration } from "@/lib/format";
-import { MAX_WARMUP_SECONDS } from "@/lib/session";
+import { MAX_REST_SECONDS, MAX_WARMUP_SECONDS } from "@/lib/session";
 import { useTrackerStore } from "@/store/tracker-store";
 
 const WARMUPS = [180, 300, 600] as const;
+const RESTS_AFTER = [0, 60, 120] as const;
 
 interface WarmupLauncherProps {
   onStart: (seconds: number) => void;
@@ -23,6 +24,8 @@ interface WarmupLauncherProps {
 export function WarmupLauncher({ onStart, align = "start", className = "" }: WarmupLauncherProps) {
   const warmupSeconds = useTrackerStore((state) => state.warmupSeconds);
   const setWarmupSeconds = useTrackerStore((state) => state.setWarmupSeconds);
+  const warmupRestSeconds = useTrackerStore((state) => state.warmupRestSeconds);
+  const setWarmupRestSeconds = useTrackerStore((state) => state.setWarmupRestSeconds);
   const [open, setOpen] = useState(false);
 
   return (
@@ -42,6 +45,14 @@ export function WarmupLauncher({ onStart, align = "start", className = "" }: War
             presets={WARMUPS}
             max={MAX_WARMUP_SECONDS}
             onChange={setWarmupSeconds}
+          />
+          <DurationPicker
+            legend="Repos ensuite, avant la première série"
+            value={warmupRestSeconds}
+            presets={RESTS_AFTER}
+            max={MAX_REST_SECONDS}
+            zeroLabel="Aucun"
+            onChange={setWarmupRestSeconds}
             hint="Rien n'est enregistré : l'échauffement ne compte pas dans ta séance."
           />
           <div className="flex gap-2">
@@ -62,6 +73,7 @@ export function WarmupLauncher({ onStart, align = "start", className = "" }: War
               className="flex-[2] rounded-card bg-accent py-2 text-sm font-bold text-accent-ink transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
             >
               Lancer · {formatDuration(warmupSeconds)}
+              {warmupRestSeconds > 0 ? ` + ${formatDuration(warmupRestSeconds)}` : ""}
             </button>
           </div>
         </motion.div>

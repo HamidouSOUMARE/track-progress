@@ -21,6 +21,18 @@ export interface Release {
  */
 export const RELEASES: readonly Release[] = [
   {
+    id: "2026-10-27-repos-echauffement",
+    date: "2026-10-27",
+    notes: [
+      {
+        kind: "ameliore",
+        title: "Un repos après l'échauffement",
+        description:
+          "Une fois échauffé, un court repos s'enchaîne avant ta première série. Sa durée se règle avec celle de l'échauffement.",
+      },
+    ],
+  },
+  {
     id: "2026-10-27",
     date: "2026-10-27",
     notes: [

@@ -38,7 +38,8 @@ l'app le fait savoir.
   fin pour ne pas dériver. L'écran reste allumé pendant le repos là où le navigateur le
   permet — le téléphone posé sur le banc ne se verrouille pas.
 - **Échauffement minuté** avant la séance ou avant un exercice, dans le même plein écran
-  que le repos. Il n'enregistre rien : ni performance, ni avancement de séance.
+  que le repos, suivi d'un court repos réglable avant la première série. Il
+  n'enregistre rien : ni performance, ni avancement de séance.
 - **Animation de célébration** quand une charge progresse, avec badge « record personnel ».
 - **Historique et sparkline** par exercice. Toute suppression — une performance, un
   suivi entier — s'annule pendant six secondes depuis une barre flottante, sans boîte

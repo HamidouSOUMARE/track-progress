@@ -93,3 +93,17 @@ const WARMUP_MESSAGES = [
 export function warmupEncouragement(): string {
   return WARMUP_MESSAGES[Math.floor(Math.random() * WARMUP_MESSAGES.length)] ?? WARMUP_MESSAGES[0];
 }
+
+/** Le souffle d'après l'échauffement : la vraie première série arrive. */
+const WARMUP_REST_MESSAGES = [
+  "Souffle, la première série arrive",
+  "Le corps est prêt, charge la barre",
+  "On passe aux choses sérieuses",
+] as const;
+
+export function warmupRestEncouragement(): string {
+  return (
+    WARMUP_REST_MESSAGES[Math.floor(Math.random() * WARMUP_REST_MESSAGES.length)] ??
+    WARMUP_REST_MESSAGES[0]
+  );
+}

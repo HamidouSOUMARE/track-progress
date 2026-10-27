@@ -18,6 +18,8 @@ export interface RestPeriod {
   message: string;
   /** Contexte sous le message : la série qui arrive, ou ce qu'on prépare. */
   caption: string;
+  /** Repos enchaîné à la fin, ou dès qu'on se dit prêt : celui d'après l'échauffement. */
+  next?: { seconds: number; message: string; caption: string };
 }
 
 const LABELS: Record<TimerKind, { running: string; over: string; skip: string }> = {
@@ -36,6 +38,8 @@ const RADIUS = 104;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 /** Délai avant de rendre l'écran, une fois le repos écoulé. */
 const LINGER_MS = 4000;
+/** Le temps de lire « terminé » avant que le repos suivant ne prenne la place. */
+const HANDOVER_MS = 1500;
 
 /**
  * Plein écran : les chiffres restent lisibles téléphone posé sur le banc. Le
@@ -79,7 +83,7 @@ export function RestTimer({ rest, onExtend, onDismiss }: RestTimerProps) {
       return;
     }
 
-    const id = window.setTimeout(onDismiss, LINGER_MS);
+    const id = window.setTimeout(onDismiss, rest.next ? HANDOVER_MS : LINGER_MS);
     return () => window.clearTimeout(id);
   }, [rest, over, onDismiss]);
 

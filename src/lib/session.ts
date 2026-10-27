@@ -8,6 +8,8 @@ export const MAX_REST_SECONDS = 600;
 /** Échauffement proposé tant que l'utilisateur n'a pas choisi le sien. */
 export const DEFAULT_WARMUP_SECONDS = 300;
 export const MAX_WARMUP_SECONDS = 1800;
+/** Souffle entre l'échauffement et la première vraie série. */
+export const DEFAULT_WARMUP_REST_SECONDS = 60;
 
 /** Ramène une durée saisie à la main dans les bornes du minuteur. */
 export function clampDuration(seconds: number, max: number): number {

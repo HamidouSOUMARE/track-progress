@@ -21,7 +21,11 @@ import { WhatsNewSheet } from "@/components/WhatsNewSheet";
 import { RELEASES, unseenReleases } from "@/data/changelog";
 import { downloadSnapshot, readSnapshot } from "@/lib/backup";
 import { formatDate } from "@/lib/format";
-import { restEncouragement, warmupEncouragement } from "@/lib/encouragement";
+import {
+  restEncouragement,
+  warmupEncouragement,
+  warmupRestEncouragement,
+} from "@/lib/encouragement";
 import { restSeconds, targetSets } from "@/lib/session";
 import { useHydrated, useTrackerStore } from "@/store/tracker-store";
 import type { Exercise } from "@/lib/types";
@@ -42,6 +46,7 @@ export function Dashboard() {
   const mergeAll = useTrackerStore((state) => state.mergeAll);
   const undoDelete = useTrackerStore((state) => state.undoDelete);
   const lastSeenRelease = useTrackerStore((state) => state.lastSeenRelease);
+  const warmupRestSeconds = useTrackerStore((state) => state.warmupRestSeconds);
   const markReleaseSeen = useTrackerStore((state) => state.markReleaseSeen);
   const hydrated = useHydrated();
 
@@ -99,8 +104,14 @@ export function Dashboard() {
     });
   };
 
-  /** Même écran que le repos, mais rien n'est enregistré : il ne compte pas. */
+  /**
+   * Même écran que le repos, mais rien n'est enregistré : il ne compte pas. Le
+   * repos d'après s'enchaîne seul, pour souffler avant la première série.
+   */
   const startWarmup = (seconds: number, caption: string) => {
+    // « Avant Squat » devient « Après l'échauffement · avant Squat ».
+    const context = `${caption.charAt(0).toLowerCase()}${caption.slice(1)}`;
+
     setRest({
       key: Date.now(),
       kind: "warmup",
@@ -108,7 +119,31 @@ export function Dashboard() {
       seconds,
       message: warmupEncouragement(),
       caption,
+      next:
+        warmupRestSeconds > 0
+          ? {
+              seconds: warmupRestSeconds,
+              message: warmupRestEncouragement(),
+              caption: `Après l'échauffement · ${context}`,
+            }
+          : undefined,
     });
+  };
+
+  /** Fin d'un décompte, écoulé ou passé : on enchaîne s'il y a une suite. */
+  const endRest = () => {
+    setRest((current) =>
+      current?.next
+        ? {
+            key: Date.now(),
+            kind: "rest",
+            endsAt: Date.now() + current.next.seconds * 1000,
+            seconds: current.next.seconds,
+            message: current.next.message,
+            caption: current.next.caption,
+          }
+        : null,
+    );
   };
 
   const flash = (message: string, actionLabel?: string) => {
@@ -342,7 +377,7 @@ export function Dashboard() {
               : current,
           )
         }
-        onDismiss={() => setRest(null)}
+        onDismiss={endRest}
       />
 
       <Toast
