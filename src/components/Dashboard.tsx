@@ -126,16 +126,14 @@ export function Dashboard() {
         return null;
       }
 
-      // « Avant Squat » devient « Après l'échauffement · avant Squat ».
-      const context = `${current.caption.charAt(0).toLowerCase()}${current.caption.slice(1)}`;
-
       return {
         key: Date.now(),
         kind: "rest",
         endsAt: Date.now() + warmupRestSeconds * 1000,
         seconds: warmupRestSeconds,
         message: warmupRestEncouragement(),
-        caption: `Après l'échauffement · ${context}`,
+        caption: current.caption,
+        afterWarmup: true,
       };
     });
   };

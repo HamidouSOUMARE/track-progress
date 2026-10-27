@@ -1026,11 +1026,13 @@ describe("parcours de suivi", () => {
     fireEvent.click(within(after).getByRole("button", { name: /^autre…$/i }));
     fireEvent.change(within(after).getByLabelText(/^minutes$/i), { target: { value: "1" } });
     fireEvent.change(within(after).getByLabelText(/^secondes$/i), { target: { value: "30" } });
-    fireEvent.click(within(warmup).getByRole("button", { name: /je suis prêt/i }));
+    fireEvent.click(within(warmup).getByRole("button", { name: /fin de l'échauffement/i }));
 
     const rest = screen.getByRole("timer");
     expect(rest.textContent).toMatch(/1:3[01]/);
-    expect(rest.textContent).toMatch(/après l'échauffement · avant séance du test/i);
+    // Le trait d'union du libellé est insécable, pour garder « post-échauffement » d'un bloc.
+    expect(rest.textContent).toMatch(/repos post[-\u2011]échauffement/i);
+    expect(rest.textContent).toMatch(/avant séance du test/i);
 
     // Le réglage est retenu pour la prochaine fois, et rien n'entre dans la séance.
     expect(useTrackerStore.getState().warmupRestSeconds).toBe(90);
@@ -1048,7 +1050,7 @@ describe("parcours de suivi", () => {
     fireEvent.click(within(sheet).getByRole("button", { name: /s'échauffer/i }));
     const warmup = screen.getByRole("timer");
     expect(warmup.textContent).toMatch(/avant squat/i);
-    fireEvent.click(within(warmup).getByRole("button", { name: /je suis prêt/i }));
+    fireEvent.click(within(warmup).getByRole("button", { name: /fin de l'échauffement/i }));
 
     await waitForElementToBeRemoved(() => screen.queryByRole("timer"));
   });

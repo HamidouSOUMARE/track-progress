@@ -28,7 +28,7 @@ export const RELEASES: readonly Release[] = [
         kind: "ameliore",
         title: "Échauffement à ton rythme",
         description:
-          "Plus de durée à choisir : un chrono compte, et tu appuies sur « Je suis prêt » quand tu l'es. Le repos d'après se règle sur ce même écran.",
+          "Plus de durée à choisir : un chrono compte, et tu appuies sur « Fin de l'échauffement » quand tu es prêt. Le repos d'après se règle sur ce même écran.",
       },
     ],
   },

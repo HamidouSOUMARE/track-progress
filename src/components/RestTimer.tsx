@@ -20,6 +20,8 @@ export interface RestPeriod extends TimerBase {
   endsAt: number;
   /** Durée totale, allongée en même temps que `endsAt` par le bouton +30 s. */
   seconds: number;
+  /** Le repos qui suit l'échauffement, et non celui entre deux séries. */
+  afterWarmup?: boolean;
 }
 
 /** Échauffement : sans durée, on s'arrête quand on se sent prêt. Rien n'est enregistré. */
@@ -189,8 +191,15 @@ export function RestTimer({
                   ? "À toi"
                   : formatCountdown(warmup ? Math.floor(elapsed) : remaining)}
               </motion.span>
-              <span className="text-xs font-medium tracking-[0.2em] text-ink-faint uppercase">
-                {warmup ? "Échauffement" : over ? "Repos terminé" : "Repos"}
+              <span className="max-w-44 text-center text-xs leading-relaxed font-medium tracking-[0.2em] text-ink-faint uppercase">
+                {warmup
+                  ? "Échauffement"
+                  : over
+                    ? "Repos terminé"
+                    : rest.afterWarmup
+                      ? // Trait d'union insécable : la ligne se coupe après « Repos ».
+                        "Repos post\u2011échauffement"
+                      : "Repos"}
               </span>
             </div>
           </div>
@@ -207,7 +216,7 @@ export function RestTimer({
                 onClick={onDismiss}
                 className="rounded-pill bg-accent px-8 py-3 text-sm font-bold text-accent-ink transition-transform active:scale-95"
               >
-                Je suis prêt
+                Fin de l&apos;échauffement
               </button>
               <DurationPicker
                 legend="Repos ensuite, avant la première série"
